@@ -27,15 +27,24 @@ declare global {
 const app = express();
 const prisma = new PrismaClient();
 
-// Security middleware
+// Security middleware - Configure CSP to allow Tailwind CDN and inline scripts
 app.use(helmet({
-  contentSecurityPolicy: process.env.NODE_ENV === 'production' ? undefined : false,
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.tailwindcss.com"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      imgSrc: ["'self'", "data:", "blob:"],
+      connectSrc: ["'self'", "https://generativelanguage.googleapis.com"],
+    },
+  },
 }));
 
 // CORS configuration - MUST be before rate limiting to handle preflight OPTIONS requests
 const corsOptions = {
   origin: process.env.NODE_ENV === 'production'
-    ? process.env.FRONTEND_URL || 'http://localhost:3000'
+    ? true // In production with same-origin, allow all (served from same domain)
     : function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
       // Allow all localhost ports in development
       if (!origin || origin.match(/^http:\/\/localhost:\d+$/)) {
