@@ -1,11 +1,16 @@
 import { GoogleGenAI } from "@google/genai";
 import { AIRequest } from "../types";
 
-const apiKey = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_GEMINI_API_KEY) || process.env.API_KEY;
-const ai = new GoogleGenAI({ apiKey });
+const apiKey = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_GEMINI_API_KEY) || process.env.API_KEY || '';
+
+// Only initialize if API key is available
+const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 
 // Legacy function for direct drafting (kept for backward compatibility if needed, though UI is changing)
 export const generateLegalDraft = async (request: AIRequest): Promise<string> => {
+  if (!ai) {
+    return "AI service is not available. Please configure the GEMINI_API_KEY.";
+  }
   try {
     const model = "gemini-2.5-flash";
     const systemInstruction = `You are an expert US Legal Assistant. Tone: ${request.tone}. Context: ${request.context || 'None'}. Draft the requested document.`;
@@ -32,15 +37,18 @@ interface ChatMessage {
 }
 
 export const createLegalChatSession = async (
-  history: ChatMessage[], 
-  lastMessage: string, 
+  history: ChatMessage[],
+  lastMessage: string,
   contextData: string,
   enableSearch: boolean = false
 ): Promise<{ text: string, sources?: any[] }> => {
+  if (!ai) {
+    return { text: "AI service is not available. Please configure the GEMINI_API_KEY." };
+  }
   try {
     // 1. Configure Tools (Google Search for research)
     const tools = enableSearch ? [{ googleSearch: {} }] : [];
-    
+
     // 2. Build System Instruction
     const systemInstruction = `You are 'Juris', a highly intelligent AI Legal Associate for a US Law Firm.
     
@@ -75,17 +83,17 @@ export const createLegalChatSession = async (
 
     // 4. Send Message
     const result = await chat.sendMessage({ message: lastMessage });
-    
+
     // 5. Extract Text and Grounding Metadata
     const text = result.text;
     const groundingChunks = result.candidates?.[0]?.groundingMetadata?.groundingChunks;
-    
+
     // Extract sources if search was used
     let sources: any[] = [];
     if (groundingChunks) {
-        sources = groundingChunks
-            .map((chunk: any) => chunk.web ? { title: chunk.web.title, uri: chunk.web.uri } : null)
-            .filter((s: any) => s !== null);
+      sources = groundingChunks
+        .map((chunk: any) => chunk.web ? { title: chunk.web.title, uri: chunk.web.uri } : null)
+        .filter((s: any) => s !== null);
     }
 
     return { text: text || "I couldn't generate a response.", sources };
