@@ -3073,26 +3073,39 @@ if (!fs.existsSync('logs')) {
 }
 
 // Run database migrations on startup (for production)
+// Run database migrations on startup (for production)
 const runDbMigrations = async () => {
+  console.log('Starting startup sequence...');
+  console.log('NODE_ENV:', process.env.NODE_ENV);
+  console.log('DATABASE_URL present:', !!process.env.DATABASE_URL);
+
   if (process.env.NODE_ENV === 'production' && process.env.DATABASE_URL) {
     try {
       const { execSync } = await import('child_process');
-      logger.info('Running prisma db push...');
+      console.log('Running prisma db push...');
       execSync('npx prisma db push --skip-generate', {
         stdio: 'inherit',
         env: process.env as NodeJS.ProcessEnv
       });
-      logger.info('Database schema synced successfully');
+      console.log('Database schema synced successfully');
     } catch (error) {
-      logger.error('Failed to sync database schema:', error);
+      console.error('Failed to sync database schema:', error);
     }
+  } else {
+    console.log('Skipping migration. Reason: ' +
+      (process.env.NODE_ENV !== 'production' ? 'Not production. ' : '') +
+      (!process.env.DATABASE_URL ? 'DATABASE_URL missing.' : '')
+    );
   }
 };
 
 // Start server
 runDbMigrations().then(() => {
   app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
     logger.info(`Server running on http://localhost:${PORT}`);
     logger.info(`Frontend should be running on http://localhost:3000`);
   });
+}).catch(err => {
+  console.error('Failed to start server:', err);
 });
