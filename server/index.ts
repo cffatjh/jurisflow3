@@ -27,6 +27,9 @@ declare global {
 const app = express();
 const prisma = new PrismaClient();
 
+// Trust proxy - required for Railway/Heroku/etc behind reverse proxy
+app.set('trust proxy', 1);
+
 // Security middleware - Configure CSP to allow Tailwind CDN and inline scripts
 app.use(helmet({
   contentSecurityPolicy: {
