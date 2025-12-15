@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && npx prisma generate",
+    "start": "node --loader tsx server/index.ts",
     "preview": "vite preview",
     "server": "tsx server/index.ts",
     "prisma:generate": "prisma generate",
