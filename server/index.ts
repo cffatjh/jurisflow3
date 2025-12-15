@@ -3072,7 +3072,27 @@ if (!fs.existsSync('logs')) {
   fs.mkdirSync('logs', { recursive: true });
 }
 
-app.listen(PORT, () => {
-  logger.info(`Server running on http://localhost:${PORT}`);
-  logger.info(`Frontend should be running on http://localhost:3000`);
+// Run database migrations on startup (for production)
+const runDbMigrations = async () => {
+  if (process.env.NODE_ENV === 'production' && process.env.DATABASE_URL) {
+    try {
+      const { execSync } = await import('child_process');
+      logger.info('Running prisma db push...');
+      execSync('npx prisma db push --skip-generate', {
+        stdio: 'inherit',
+        env: process.env as NodeJS.ProcessEnv
+      });
+      logger.info('Database schema synced successfully');
+    } catch (error) {
+      logger.error('Failed to sync database schema:', error);
+    }
+  }
+};
+
+// Start server
+runDbMigrations().then(() => {
+  app.listen(PORT, () => {
+    logger.info(`Server running on http://localhost:${PORT}`);
+    logger.info(`Frontend should be running on http://localhost:3000`);
+  });
 });
