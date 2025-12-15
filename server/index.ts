@@ -3013,14 +3013,35 @@ app.delete('/api/templates/:id', asyncHandler(async (req, res) => {
   res.status(204).send();
 }));
 
-// ===================== ROOT ROUTE =====================
-app.get('/', (req, res) => {
-  res.json({
-    message: 'JurisFlow API Server',
-    frontend: 'Please access the frontend at http://localhost:3000',
-    api: 'API endpoints are available at /api/*'
+// ===================== STATIC FILES & FRONTEND =====================
+// Serve static files from dist folder in production
+const __dirname = path.dirname(new URL(import.meta.url).pathname);
+const distPath = process.platform === 'win32'
+  ? path.join(__dirname, '..', 'dist')
+  : path.join(__dirname.replace(/^\/([A-Za-z]:)/, '$1'), '..', 'dist');
+
+if (process.env.NODE_ENV === 'production') {
+  // Serve static files
+  app.use(express.static(distPath));
+
+  // Handle React Router - serve index.html for all non-API routes
+  app.get('*', (req, res) => {
+    // Don't serve index.html for API routes
+    if (req.path.startsWith('/api/')) {
+      return res.status(404).json({ error: 'API endpoint not found' });
+    }
+    res.sendFile(path.join(distPath, 'index.html'));
   });
-});
+} else {
+  // Development mode - just show API info
+  app.get('/', (req, res) => {
+    res.json({
+      message: 'JurisFlow API Server',
+      frontend: 'Please access the frontend at http://localhost:3000',
+      api: 'API endpoints are available at /api/*'
+    });
+  });
+}
 
 // Health check endpoint
 app.get('/health', (req, res) => {
