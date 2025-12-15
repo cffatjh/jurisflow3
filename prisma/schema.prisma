@@ -1,0 +1,326 @@
+// ==============================
+// DATASOURCE & GENERATOR
+// ==============================
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ==============================
+// MODELS
+// ==============================
+
+// ------------------------------
+// CLIENT (Müvekkil)
+// ------------------------------
+model Client {
+  id          String   @id @default(cuid())
+  name        String
+  email       String   @unique
+  phone       String?
+  mobile      String?
+  company     String?
+  type        String    // Individual | Corporate
+  status      String    // Active | Inactive
+  address     String?
+  city        String?
+  state       String?
+  zipCode     String?
+  country     String?
+  taxId       String?   // Tax ID / SSN
+  notes       String?   // Additional notes
+  
+  // Client Portal Authentication
+  passwordHash String?  // For client portal login
+  portalEnabled Boolean @default(false)  // Enable/disable client portal access
+  lastLogin    DateTime?
+  
+  createdAt   DateTime? @default(now())
+  updatedAt   DateTime? @updatedAt
+
+  matters  Matter[]
+  invoices Invoice[]
+  clientMessages ClientMessage[]  // Messages from client to attorney
+  notifications Notification[]    // Client notifications
+}
+
+// ------------------------------
+// MATTER (Dava Dosyası)
+// ------------------------------
+model Matter {
+  id                  String        @id @default(cuid())
+  caseNumber          String
+  name                String
+  practiceArea        String
+  status              String        // Open | Closed
+  feeStructure        String        // Hourly | Fixed
+  openDate            DateTime      @default(now())
+  responsibleAttorney String
+  billableRate        Float
+  trustBalance        Float         @default(0)
+
+  clientId String
+  client   Client       @relation(fields: [clientId], references: [id])
+
+  timeEntries TimeEntry[]
+  expenses    Expense[]
+  tasks       Task[]
+  events      CalendarEvent[]
+  clientMessages ClientMessage[]  // Messages related to this matter
+  documents   Document[]  // Documents related to this matter
+}
+
+// ------------------------------
+// TASK (Görev)
+// ------------------------------
+model Task {
+  id         String   @id @default(cuid())
+  title      String
+  description String?
+  dueDate    DateTime?
+  reminderAt DateTime?
+  priority   String    // High | Medium | Low
+  status     String
+  matterId   String?
+  matter     Matter?   @relation(fields: [matterId], references: [id])
+  assignedTo String?
+
+  templateId String?
+  template   TaskTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ------------------------------
+// TASK TEMPLATE (Görev Şablonu)
+// ------------------------------
+model TaskTemplate {
+  id           String   @id @default(cuid())
+  name         String
+  category     String?  // e.g. "İcra", "Ceza", "Şirketler"
+  description  String?
+  definition   String   // JSON string: template tasks + offsets + defaults
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tasks        Task[]
+}
+
+// ------------------------------
+// TIME ENTRY (Zaman Kayıtları)
+// ------------------------------
+model TimeEntry {
+  id          String   @id @default(cuid())
+  matterId    String?
+  matter      Matter?  @relation(fields: [matterId], references: [id])
+  description String
+  duration    Int       // dakika
+  rate        Float
+  date        DateTime
+  billed      Boolean   @default(false)
+  type        String    // time
+}
+
+// ------------------------------
+// EXPENSE (Gider Kaydı)
+// ------------------------------
+model Expense {
+  id          String   @id @default(cuid())
+  matterId    String?
+  matter      Matter?  @relation(fields: [matterId], references: [id])
+  description String
+  amount      Float
+  date        DateTime
+  category    String
+  billed      Boolean   @default(false)
+  type        String    // expense
+}
+
+// ------------------------------
+// LEAD (CRM – Potansiyel Müşteri)
+// ------------------------------
+model Lead {
+  id             String   @id @default(cuid())
+  name           String
+  source         String
+  status         String     // New | Contacted | Converted | Lost
+  estimatedValue Float
+  practiceArea   String
+}
+
+// ------------------------------
+// CALENDAR EVENT (Ajanda Etkinliği)
+// ------------------------------
+model CalendarEvent {
+  id       String   @id @default(cuid())
+  title    String
+  date     DateTime
+  type     String    // Meeting | Court | Deadline
+  matterId String?
+  matter   Matter?   @relation(fields: [matterId], references: [id])
+}
+
+// ------------------------------
+// INVOICE (Fatura)
+// ------------------------------
+model Invoice {
+  id        String   @id @default(cuid())
+  number    String
+  amount    Float
+  dueDate   DateTime
+  status    String    // Paid | Overdue | Draft | Sent
+
+  clientId  String
+  client    Client    @relation(fields: [clientId], references: [id])
+}
+
+// ------------------------------
+// USER (Sistem Kullanıcısı)
+// ------------------------------
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  role         String   // Admin | Partner | Associate
+  passwordHash String
+  phone        String?
+  mobile       String?
+  address      String?
+  city         String?
+  state        String?
+  zipCode      String?
+  country      String?
+  barNumber    String?   // Bar association number
+  bio          String?   // Professional bio
+  avatar       String?   // Avatar URL
+  preferences  String?   // JSON string for user preferences
+  createdAt    DateTime? @default(now())
+  updatedAt    DateTime? @updatedAt
+
+  notifications Notification[]
+}
+
+// ------------------------------
+// NOTIFICATION (Bildirim)
+// ------------------------------
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clientId  String?  // For client notifications
+  client    Client?  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  type      String   // info | warning | error | success
+  read      Boolean  @default(false)
+  link      String?  // Optional link to related item
+  createdAt DateTime @default(now())
+}
+
+// ------------------------------
+// CLIENT MESSAGE (Müvekkil Mesajı)
+// ------------------------------
+model ClientMessage {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  matterId  String?  // Optional: related to a specific matter
+  matter    Matter?  @relation(fields: [matterId], references: [id])
+  subject   String
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+// ------------------------------
+// DOCUMENT (Doküman)
+// ------------------------------
+model Document {
+  id          String   @id @default(cuid())
+  name        String
+  fileName    String   // Original file name
+  filePath    String   // Server file path
+  fileSize    Int      // Size in bytes
+  mimeType    String   // MIME type
+  matterId    String?
+  matter      Matter?  @relation(fields: [matterId], references: [id], onDelete: Cascade)
+  uploadedBy  String?  // User ID who uploaded
+  version     Int      @default(1)
+  groupKey     String? // Basic versioning key (e.g. matterId+fileName)
+  description String?
+  tags        String?  // JSON string array of tags
+  textContent String?  // Extracted text for search (PDF/text)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ------------------------------
+// AUDIT LOG (İşlem Kayıtları)
+// ------------------------------
+model AuditLog {
+  id          String   @id @default(cuid())
+  userId      String?  // User who performed the action (attorney/admin)
+  userEmail   String?  // User email for reference
+  clientId    String?  // Client who performed the action (if client action)
+  clientEmail String?  // Client email for reference
+  action      String   // CREATE, UPDATE, DELETE, LOGIN, LOGOUT, DOWNLOAD, VIEW, etc.
+  entityType  String   // User, Client, Matter, Invoice, Document, etc.
+  entityId    String?  // ID of the affected entity
+  oldValues   String?  // JSON string of old values
+  newValues   String?  // JSON string of new values
+  details     String?  // Additional details about the action
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+}
+
+// ------------------------------
+// PASSWORD RESET TOKEN
+// ------------------------------
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+// ------------------------------
+// DOCUMENT TEMPLATE (Doküman Şablonu)
+// ------------------------------
+model DocumentTemplate {
+  id          String   @id @default(cuid())
+  name        String
+  category    String   // Dilekçe, Sözleşme, İhtarname, vb.
+  description String?
+  content     String   // Template content with variables like {{client_name}}, {{date}}
+  variables   String?  // JSON array of variable definitions
+  isActive    Boolean  @default(true)
+  createdBy   String?  // User ID who created
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ------------------------------
+// REMINDER (Hatırlatıcı)
+// ------------------------------
+model Reminder {
+  id          String   @id @default(cuid())
+  type        String   // email, sms, notification
+  triggerAt   DateTime
+  sent        Boolean  @default(false)
+  sentAt      DateTime?
+  entityType  String   // CalendarEvent, Task, Matter
+  entityId    String
+  userId      String?
+  message     String?
+  createdAt   DateTime @default(now())
+}
