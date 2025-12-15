@@ -201,10 +201,12 @@ model User {
   bio          String?   // Professional bio
   avatar       String?   // Avatar URL
   preferences  String?   // JSON string for user preferences
+  notificationPreferences String? // JSON string for notification settings
   createdAt    DateTime? @default(now())
   updatedAt    DateTime? @updatedAt
 
-  notifications Notification[]
+  notifications     Notification[]
+  pushSubscriptions PushSubscription[]
 }
 
 // ------------------------------
@@ -321,6 +323,56 @@ model Reminder {
   entityType  String   // CalendarEvent, Task, Matter
   entityId    String
   userId      String?
+  message     String?
+  createdAt   DateTime @default(now())
+}
+
+// ------------------------------
+// PUSH SUBSCRIPTION (Web Push Subscription)
+// ------------------------------
+model PushSubscription {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint    String   @unique
+  p256dh      String   // Public key for push encryption
+  auth        String   // Auth secret
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ------------------------------
+// PAYMENT (Ödeme - Stripe)
+// ------------------------------
+model Payment {
+  id              String   @id @default(cuid())
+  invoiceId       String
+  amount          Float
+  currency        String   @default("usd")
+  status          String   // pending, succeeded, failed, refunded
+  stripePaymentId String?  // Stripe PaymentIntent ID
+  stripeChargeId  String?  // Stripe Charge ID
+  paymentMethod   String?  // card, bank_transfer, etc.
+  last4           String?  // Last 4 digits of card
+  brand           String?  // Card brand (visa, mastercard, etc.)
+  receiptUrl      String?  // Stripe receipt URL
+  metadata        String?  // JSON string for additional data
+  paidAt          DateTime?
+  refundedAt      DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// ------------------------------
+// PAYMENT REMINDER (Ödeme Hatırlatıcı)
+// ------------------------------
+model PaymentReminder {
+  id          String   @id @default(cuid())
+  invoiceId   String
+  type        String   // email, sms, push
+  scheduledAt DateTime
+  sentAt      DateTime?
+  sent        Boolean  @default(false)
   message     String?
   createdAt   DateTime @default(now())
 }

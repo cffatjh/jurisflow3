@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import GoogleAuthCallback from './components/GoogleAuthCallback';
 import MicrosoftAuthCallback from './components/MicrosoftAuthCallback';
 import ZoomAuthCallback from './components/ZoomAuthCallback';
-import { LayoutDashboard, Briefcase, Scale, BrainCircuit, Plus, Calendar as CalendarIcon, CreditCard, Bell, Folder, Mail, Users, Settings as SettingsIcon, Search, Timer, CheckSquare, Video } from './components/Icons';
+import { LayoutDashboard, Briefcase, Scale, BrainCircuit, Plus, Calendar as CalendarIcon, CreditCard, Bell, Folder, Mail, Users, Settings as SettingsIcon, Search, Timer, CheckSquare, Video, BarChart3 } from './components/Icons';
 import Dashboard from './components/Dashboard';
 import Matters from './components/Matters';
 import AIDrafter from './components/AIDrafter';
@@ -20,6 +20,7 @@ import Tasks from './components/Tasks';
 import CommandPalette from './components/CommandPalette';
 import Notifications from './components/Notifications';
 import Settings from './components/Settings';
+import Reports from './components/Reports';
 import GlobalTimer from './components/GlobalTimer';
 import ClientPortal from './components/client/ClientPortal';
 import { ToastProvider } from './components/Toast';
@@ -31,7 +32,7 @@ import { DataProvider, useData } from './contexts/DataContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { Language } from './translations';
 
-type ActiveTab = 'dashboard' | 'matters' | 'documents' | 'communications' | 'crm' | 'ai' | 'billing' | 'calendar' | 'time' | 'tasks' | 'settings' | 'videocall';
+type ActiveTab = 'dashboard' | 'matters' | 'documents' | 'communications' | 'crm' | 'ai' | 'billing' | 'calendar' | 'time' | 'tasks' | 'settings' | 'videocall' | 'reports';
 
 const FLAGS: Record<Language, string> = {
   en: '🇺🇸',
@@ -81,8 +82,8 @@ const MainLayout = () => {
     <button
       onClick={() => setActiveTab(tab)}
       className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all duration-200 group mb-1 ${activeTab === tab
-          ? 'bg-slate-700 text-white font-medium shadow-sm'
-          : 'text-gray-400 hover:bg-slate-800 hover:text-white'
+        ? 'bg-slate-700 text-white font-medium shadow-sm'
+        : 'text-gray-400 hover:bg-slate-800 hover:text-white'
         }`}
     >
       <Icon className={`w-5 h-5 ${activeTab === tab ? 'text-white' : 'text-gray-500 group-hover:text-gray-300'}`} />
@@ -119,6 +120,7 @@ const MainLayout = () => {
           <NavButton tab="calendar" icon={CalendarIcon} label={t('nav_calendar')} />
           <NavButton tab="billing" icon={CreditCard} label={t('nav_billing')} />
           <NavButton tab="time" icon={Timer} label={t('nav_time')} />
+          <NavButton tab="reports" icon={BarChart3} label="Reports" />
           <NavButton tab="ai" icon={BrainCircuit} label={t('nav_ai')} />
         </nav>
 
@@ -208,6 +210,7 @@ const ComponentSwitcher = ({ activeTab }: { activeTab: ActiveTab }) => {
     case 'calendar': return <CalendarView />;
     case 'ai': return <AIDrafter matters={matters} />;
     case 'time': return <TimeTracker />;
+    case 'reports': return <Reports />;
     case 'settings': return <Settings />;
     default: return <Dashboard />;
   }
