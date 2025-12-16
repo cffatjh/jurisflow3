@@ -864,6 +864,18 @@ app.put('/api/tasks/:id/status', async (req, res) => {
   }
 });
 
+// Delete task
+app.delete('/api/tasks/:id', async (req, res) => {
+  try {
+    const id = req.params.id;
+    await prisma.task.delete({ where: { id } });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error deleting task:', err);
+    res.status(500).json({ message: 'Failed to delete task' });
+  }
+});
+
 // ===================== TASK TEMPLATES =====================
 app.get('/api/task-templates', async (req, res) => {
   try {
