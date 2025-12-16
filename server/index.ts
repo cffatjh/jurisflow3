@@ -30,19 +30,25 @@ const prisma = new PrismaClient();
 // Trust proxy - required for Railway/Heroku/etc behind reverse proxy
 app.set('trust proxy', 1);
 
-// Security middleware - Configure CSP to allow Tailwind CDN and inline scripts
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.tailwindcss.com"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-      fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      imgSrc: ["'self'", "data:", "blob:"],
-      connectSrc: ["'self'", "https://generativelanguage.googleapis.com"],
+// Security middleware - Disable CSP in production for Vite SPA
+if (process.env.NODE_ENV === 'production') {
+  app.use(helmet({
+    contentSecurityPolicy: false, // Disable CSP in production
+  }));
+} else {
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.tailwindcss.com"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com"],
+        imgSrc: ["'self'", "data:", "blob:"],
+        connectSrc: ["'self'", "https://generativelanguage.googleapis.com"],
+      },
     },
-  },
-}));
+  }));
+}
 
 // CORS configuration - MUST be before rate limiting to handle preflight OPTIONS requests
 const corsOptions = {
