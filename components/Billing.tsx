@@ -583,23 +583,31 @@ const Billing: React.FC = () => {
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-700 mb-1">Tax Rate (%)</label>
                                                 <input
-                                                    type="number"
+                                                    type="text"
+                                                    inputMode="decimal"
                                                     min="0"
                                                     max="100"
-                                                    step="0.1"
-                                                    value={taxRate}
-                                                    onChange={e => setTaxRate(parseFloat(e.target.value) || 0)}
+                                                    value={taxRate === 0 ? '' : taxRate}
+                                                    onChange={e => {
+                                                        const val = e.target.value.replace(/[^0-9.]/g, '');
+                                                        setTaxRate(val === '' ? 0 : parseFloat(val));
+                                                    }}
+                                                    placeholder="0"
                                                     className="w-full border border-gray-300 rounded-lg p-2.5 text-sm"
                                                 />
                                             </div>
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-700 mb-1">Discount</label>
                                                 <input
-                                                    type="number"
+                                                    type="text"
+                                                    inputMode="decimal"
                                                     min="0"
-                                                    step="0.01"
-                                                    value={discountAmount}
-                                                    onChange={e => setDiscountAmount(parseFloat(e.target.value) || 0)}
+                                                    value={discountAmount === 0 ? '' : discountAmount}
+                                                    onChange={e => {
+                                                        const val = e.target.value.replace(/[^0-9.]/g, '');
+                                                        setDiscountAmount(val === '' ? 0 : parseFloat(val));
+                                                    }}
+                                                    placeholder="0"
                                                     className="w-full border border-gray-300 rounded-lg p-2.5 text-sm"
                                                 />
                                             </div>
