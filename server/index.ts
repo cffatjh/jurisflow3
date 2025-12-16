@@ -3356,9 +3356,10 @@ const runDbMigrations = async () => {
 
 // Start server
 runDbMigrations().then(() => {
-  app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-    logger.info(`Server running on http://localhost:${PORT}`);
+  const HOST = '0.0.0.0'; // Required for Railway/Docker
+  app.listen(Number(PORT), HOST, () => {
+    console.log(`Server running on http://${HOST}:${PORT}`);
+    logger.info(`Server running on http://${HOST}:${PORT}`);
     logger.info(`Frontend should be running on http://localhost:3000`);
   });
 }).catch(err => {
