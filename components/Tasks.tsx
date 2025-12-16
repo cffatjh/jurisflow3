@@ -95,6 +95,21 @@ const Tasks: React.FC = () => {
         </div>
         <div className="flex items-center gap-3">
           <button
+            onClick={() => setShowArchived(!showArchived)}
+            className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${showArchived
+              ? 'bg-slate-800 text-white'
+              : 'bg-white border border-gray-200 text-slate-700 hover:bg-gray-50'
+              }`}
+          >
+            <Archive className="w-4 h-4" />
+            {showArchived ? 'Hide Archive' : 'Archive'}
+            {tasks.filter(t => t.status === 'Archived').length > 0 && (
+              <span className={`text-xs px-1.5 py-0.5 rounded-full ${showArchived ? 'bg-white/20' : 'bg-gray-100'}`}>
+                {tasks.filter(t => t.status === 'Archived').length}
+              </span>
+            )}
+          </button>
+          <button
             onClick={() => setShowTemplateModal(true)}
             className="bg-white border border-gray-200 text-slate-700 px-5 py-2.5 rounded-lg shadow-sm hover:bg-gray-50 transition-colors text-sm font-medium"
             title="Create tasks from a workflow template"
@@ -215,6 +230,82 @@ const Tasks: React.FC = () => {
           })}
         </div>
       </div>
+
+      {/* Archived Tasks Section */}
+      {showArchived && (
+        <div className="px-6 pb-6">
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50/50 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Archive className="w-5 h-5 text-gray-500" />
+                <h3 className="font-bold text-slate-800">Archived Tasks</h3>
+                <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full font-bold">
+                  {tasks.filter(t => t.status === 'Archived').length}
+                </span>
+              </div>
+            </div>
+            <div className="divide-y divide-gray-100 max-h-[300px] overflow-y-auto">
+              {tasks.filter(t => t.status === 'Archived').length === 0 ? (
+                <div className="p-8 text-center text-gray-400">
+                  <Archive className="w-12 h-12 mx-auto opacity-20 mb-2" />
+                  <p>No archived tasks yet</p>
+                </div>
+              ) : (
+                tasks.filter(t => t.status === 'Archived').map(task => {
+                  const matter = matters.find(m => m.id === task.matterId);
+                  return (
+                    <div key={task.id} className="px-6 py-4 flex items-center justify-between hover:bg-gray-50">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3">
+                          <span className={`text-[10px] px-2 py-0.5 rounded border font-bold uppercase ${task.outcome === 'success' ? 'bg-green-100 text-green-700 border-green-200' :
+                              task.outcome === 'failed' ? 'bg-red-100 text-red-700 border-red-200' :
+                                task.outcome === 'cancelled' ? 'bg-gray-100 text-gray-600 border-gray-200' :
+                                  'bg-slate-100 text-slate-600 border-slate-200'
+                            }`}>
+                            {task.outcome || 'Archived'}
+                          </span>
+                          <h4 className="font-medium text-slate-800">{task.title}</h4>
+                          {matter && <span className="text-xs text-blue-600">{matter.name}</span>}
+                        </div>
+                        {task.description && (
+                          <p className="text-sm text-gray-500 mt-1 truncate max-w-md">{task.description}</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs text-gray-400">{formatDate(task.completedAt || task.updatedAt || '')}</span>
+                        <button
+                          onClick={() => updateTaskStatus(task.id, 'Done')}
+                          className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                        >
+                          Restore
+                        </button>
+                        <button
+                          onClick={async () => {
+                            const ok = await confirm({
+                              title: t('delete_task'),
+                              message: t('confirm_delete'),
+                              confirmText: t('delete_task'),
+                              cancelText: t('cancel'),
+                              variant: 'danger'
+                            });
+                            if (ok) {
+                              deleteTask(task.id);
+                              toast.success(t('task_deleted'));
+                            }
+                          }}
+                          className="text-gray-400 hover:text-red-600"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add Task Modal */}
       {showModal && (
