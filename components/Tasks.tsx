@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Task, TaskStatus } from '../types';
+import { Task, TaskStatus, TaskOutcome } from '../types';
 import { CheckSquare, Plus, Filter, X, Trash2, Archive } from './Icons';
 import { useTranslation } from '../contexts/LanguageContext';
 import { useData } from '../contexts/DataContext';
@@ -8,7 +8,7 @@ import { toast } from './Toast';
 
 const Tasks: React.FC = () => {
   const { t, formatDate } = useTranslation();
-  const { tasks, addTask, updateTaskStatus, deleteTask, archiveTask, matters, taskTemplates, createTasksFromTemplate } = useData();
+  const { tasks, addTask, updateTaskStatus, updateTask, deleteTask, archiveTask, matters, taskTemplates, createTasksFromTemplate } = useData();
   const { confirm } = useConfirm();
   const [showModal, setShowModal] = useState(false);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
@@ -160,30 +160,47 @@ const Tasks: React.FC = () => {
                               <button onClick={() => updateTaskStatus(task.id, COLUMNS[COLUMNS.indexOf(column) + 1])} className="text-gray-400 hover:text-slate-800 text-xs px-1" title="Move Forward">→</button>
                             )}
                             {column === 'Done' && (
-                              <button
-                                onClick={() => archiveTask(task.id)}
-                                className="text-gray-400 hover:text-green-600 text-xs p-1 rounded hover:bg-green-50"
-                                title="Arşivle"
-                              >
-                                <Archive className="w-3 h-3" />
-                              </button>
+                              <>
+                                <select
+                                  value={task.outcome || ''}
+                                  onChange={(e) => updateTask(task.id, { outcome: e.target.value as TaskOutcome })}
+                                  className={`text-[10px] px-1 py-0.5 rounded border ${task.outcome === 'success' ? 'bg-green-100 text-green-700 border-green-200' :
+                                    task.outcome === 'failed' ? 'bg-red-100 text-red-700 border-red-200' :
+                                      task.outcome === 'cancelled' ? 'bg-gray-100 text-gray-600 border-gray-200' :
+                                        'bg-blue-50 text-blue-600 border-blue-200'
+                                    }`}
+                                  title={t('mark_outcome')}
+                                >
+                                  <option value="">{t('mark_outcome')}</option>
+                                  <option value="success">{t('outcome_success')}</option>
+                                  <option value="failed">{t('outcome_failed')}</option>
+                                  <option value="cancelled">{t('outcome_cancelled')}</option>
+                                </select>
+                                <button
+                                  onClick={() => archiveTask(task.id)}
+                                  className="text-gray-400 hover:text-green-600 text-xs p-1 rounded hover:bg-green-50"
+                                  title="Archive"
+                                >
+                                  <Archive className="w-3 h-3" />
+                                </button>
+                              </>
                             )}
                             <button
                               onClick={async () => {
                                 const ok = await confirm({
-                                  title: 'Görevi Sil',
-                                  message: `"${task.title}" görevini silmek istediğinize emin misiniz?`,
-                                  confirmText: 'Sil',
-                                  cancelText: 'İptal',
+                                  title: t('delete_task'),
+                                  message: t('confirm_delete'),
+                                  confirmText: t('delete_task'),
+                                  cancelText: t('cancel'),
                                   variant: 'danger'
                                 });
                                 if (ok) {
                                   deleteTask(task.id);
-                                  toast.success('Görev silindi');
+                                  toast.success(t('task_deleted'));
                                 }
                               }}
                               className="text-gray-400 hover:text-red-600 text-xs p-1 rounded hover:bg-red-50"
-                              title="Sil"
+                              title={t('delete_task')}
                             >
                               <Trash2 className="w-3 h-3" />
                             </button>

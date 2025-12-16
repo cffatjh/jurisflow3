@@ -89,6 +89,7 @@ model Task {
   reminderAt DateTime?
   priority   String    // High | Medium | Low
   status     String
+  outcome    String?   // success | failed | cancelled - for completed tasks
   matterId   String?
   matter     Matter?   @relation(fields: [matterId], references: [id])
   assignedTo String?

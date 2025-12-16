@@ -96,6 +96,7 @@ export interface Invoice {
 }
 
 export type TaskStatus = 'To Do' | 'In Progress' | 'Review' | 'Done' | 'Archived';
+export type TaskOutcome = 'success' | 'failed' | 'cancelled';
 
 export interface Task {
   id: string;
@@ -105,6 +106,7 @@ export interface Task {
   reminderAt?: string;
   priority: 'High' | 'Medium' | 'Low';
   status: TaskStatus;
+  outcome?: TaskOutcome; // for completed tasks
   matterId?: string;
   assignedTo?: string; // Initials
   templateId?: string;

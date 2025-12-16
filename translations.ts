@@ -124,6 +124,14 @@ export const translations = {
     tasks_title: "Task Management",
     tasks_subtitle: "Track deadlines, assign tasks, and manage case progress.",
     add_task: "+ Add Task",
+    delete_task: "Delete Task",
+    task_deleted: "Task deleted",
+    task_completed: "Task completed",
+    mark_outcome: "Mark Outcome",
+    outcome_success: "Success",
+    outcome_failed: "Failed",
+    outcome_cancelled: "Cancelled",
+    confirm_delete: "Are you sure you want to delete this task?",
 
     // Billing
     billing_title: "Billing & Invoices",
@@ -332,6 +340,14 @@ export const translations = {
     tasks_title: "Görev Yönetimi",
     tasks_subtitle: "Dava süreçlerini, son tarihleri ve görev atamalarını yönetin.",
     add_task: "+ Görev Ekle",
+    delete_task: "Görevi Sil",
+    task_deleted: "Görev silindi",
+    task_completed: "Görev tamamlandı",
+    mark_outcome: "Sonuç Belirle",
+    outcome_success: "Başarılı",
+    outcome_failed: "Başarısız",
+    outcome_cancelled: "İptal Edildi",
+    confirm_delete: "Bu görevi silmek istediğinize emin misiniz?",
 
     // Billing
     billing_title: "Fatura ve Ödemeler",
