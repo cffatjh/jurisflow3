@@ -4,7 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "npm run server & vite",
+    "dev:frontend": "vite",
     "build": "vite build && npx prisma generate",
     "start": "node --import tsx server/index.ts",
     "start:prod": "node --import tsx server/index.ts",

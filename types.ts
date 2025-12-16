@@ -95,7 +95,7 @@ export interface Invoice {
   status: 'Paid' | 'Overdue' | 'Sent' | 'Draft';
 }
 
-export type TaskStatus = 'To Do' | 'In Progress' | 'Review' | 'Done';
+export type TaskStatus = 'To Do' | 'In Progress' | 'Review' | 'Done' | 'Archived';
 
 export interface Task {
   id: string;
@@ -160,7 +160,7 @@ export interface Message {
 export interface AIRequest {
   prompt: string;
   tone: 'Professional' | 'Aggressive' | 'Empathetic' | 'Academic' | 'Persuasive';
-  context?: string; 
+  context?: string;
   docType?: 'Motion' | 'Email' | 'Memo' | 'Contract' | 'Letter';
 }
 
@@ -199,4 +199,122 @@ export interface AuditLogListResponse {
   limit: number;
   total: number;
   items: AuditLogEntry[];
+}
+
+// ========== V2.0 NEW TYPES ==========
+
+export interface TrustTransaction {
+  id: string;
+  matterId: string;
+  type: 'deposit' | 'withdrawal' | 'transfer' | 'refund';
+  amount: number;
+  description: string;
+  reference?: string;
+  balance: number;
+  createdBy?: string;
+  createdAt: string;
+}
+
+export interface AppointmentRequest {
+  id: string;
+  clientId: string;
+  matterId?: string;
+  requestedDate: string;
+  duration: number;
+  type: 'consultation' | 'meeting' | 'call' | 'court';
+  notes?: string;
+  status: 'pending' | 'approved' | 'rejected' | 'cancelled';
+  assignedTo?: string;
+  approvedDate?: string;
+  createdAt: string;
+}
+
+export interface Workflow {
+  id: string;
+  name: string;
+  description?: string;
+  trigger: 'matter_created' | 'status_changed' | 'deadline_approaching' | 'task_completed' | 'invoice_created';
+  triggerConfig?: string;
+  actions: string;
+  isActive: boolean;
+  runCount: number;
+  lastRunAt?: string;
+  createdBy?: string;
+  createdAt: string;
+}
+
+export interface WorkflowExecution {
+  id: string;
+  workflowId: string;
+  triggeredBy: string;
+  status: 'success' | 'failed' | 'partial';
+  actionsRun?: string;
+  error?: string;
+  executedAt: string;
+}
+
+export interface SignatureRequest {
+  id: string;
+  documentId: string;
+  clientId: string;
+  status: 'pending' | 'signed' | 'declined' | 'expired';
+  signedAt?: string;
+  signatureData?: string;
+  ipAddress?: string;
+  expiresAt?: string;
+  createdAt: string;
+}
+
+export interface IntakeForm {
+  id: string;
+  name: string;
+  description?: string;
+  fields: string;
+  practiceArea?: string;
+  isActive: boolean;
+  createdBy?: string;
+  createdAt: string;
+}
+
+export interface IntakeSubmission {
+  id: string;
+  formId: string;
+  data: string;
+  status: 'new' | 'reviewed' | 'converted' | 'rejected';
+  convertedToClientId?: string;
+  convertedToMatterId?: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  notes?: string;
+  createdAt: string;
+}
+
+export interface SettlementStatement {
+  id: string;
+  matterId: string;
+  grossSettlement: number;
+  attorneyFees: number;
+  expenses: number;
+  liens?: number;
+  netToClient: number;
+  breakdown?: string;
+  status: 'draft' | 'sent' | 'approved' | 'disputed';
+  clientApprovedAt?: string;
+  pdfPath?: string;
+  createdAt: string;
+}
+
+export interface Payment {
+  id: string;
+  invoiceId: string;
+  amount: number;
+  currency: string;
+  status: 'pending' | 'succeeded' | 'failed' | 'refunded';
+  stripePaymentId?: string;
+  paymentMethod?: string;
+  last4?: string;
+  brand?: string;
+  receiptUrl?: string;
+  paidAt?: string;
+  createdAt: string;
 }

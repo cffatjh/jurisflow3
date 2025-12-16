@@ -46,6 +46,8 @@ model Client {
   invoices Invoice[]
   clientMessages ClientMessage[]  // Messages from client to attorney
   notifications Notification[]    // Client notifications
+  appointmentRequests AppointmentRequest[]  // Randevu talepleri
+  signatureRequests SignatureRequest[]  // E-imza talepleri
 }
 
 // ------------------------------
@@ -72,6 +74,8 @@ model Matter {
   events      CalendarEvent[]
   clientMessages ClientMessage[]  // Messages related to this matter
   documents   Document[]  // Documents related to this matter
+  trustTransactions TrustTransaction[]  // Trust account transactions
+  settlementStatements SettlementStatement[]  // Settlement statements
 }
 
 // ------------------------------
@@ -261,6 +265,8 @@ model Document {
   textContent String?  // Extracted text for search (PDF/text)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  
+  signatureRequests SignatureRequest[]  // E-imza talepleri
 }
 
 // ------------------------------
@@ -375,4 +381,149 @@ model PaymentReminder {
   sent        Boolean  @default(false)
   message     String?
   createdAt   DateTime @default(now())
+}
+
+// ------------------------------
+// TRUST TRANSACTION (Emanet Hesap İşlemi)
+// ------------------------------
+model TrustTransaction {
+  id          String   @id @default(cuid())
+  matterId    String
+  matter      Matter   @relation(fields: [matterId], references: [id], onDelete: Cascade)
+  type        String   // deposit, withdrawal, transfer, refund
+  amount      Float
+  description String
+  reference   String?  // Check number, wire reference etc.
+  balance     Float    // Running balance after this transaction
+  createdBy   String?  // User who created
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ------------------------------
+// APPOINTMENT REQUEST (Randevu Talebi)
+// ------------------------------
+model AppointmentRequest {
+  id            String   @id @default(cuid())
+  clientId      String
+  client        Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  matterId      String?
+  requestedDate DateTime
+  duration      Int      @default(30) // minutes
+  type          String   // consultation, meeting, call, court
+  notes         String?
+  status        String   @default("pending") // pending, approved, rejected, cancelled
+  assignedTo    String?  // Attorney user ID
+  approvedDate  DateTime? // Final approved date/time
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// ------------------------------
+// WORKFLOW (Otomasyon Akışı)
+// ------------------------------
+model Workflow {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  trigger     String   // matter_created, status_changed, deadline_approaching, task_completed, invoice_created
+  triggerConfig String? // JSON: conditions for trigger
+  actions     String   // JSON array of actions
+  isActive    Boolean  @default(true)
+  runCount    Int      @default(0)
+  lastRunAt   DateTime?
+  createdBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  executions  WorkflowExecution[]  // Execution history
+}
+
+// ------------------------------
+// WORKFLOW EXECUTION LOG
+// ------------------------------
+model WorkflowExecution {
+  id          String   @id @default(cuid())
+  workflowId  String
+  workflow    Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  triggeredBy String   // entity that triggered: matter_id, task_id etc.
+  status      String   // success, failed, partial
+  actionsRun  String?  // JSON: which actions ran
+  error       String?
+  executedAt  DateTime @default(now())
+}
+
+// ------------------------------
+// SIGNATURE REQUEST (E-İmza Talebi)
+// ------------------------------
+model SignatureRequest {
+  id            String   @id @default(cuid())
+  documentId    String
+  document      Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  clientId      String
+  client        Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  status        String   @default("pending") // pending, signed, declined, expired
+  signedAt      DateTime?
+  signatureData String?  // Base64 encoded signature image
+  ipAddress     String?
+  userAgent     String?
+  expiresAt     DateTime?
+  reminderSent  Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// ------------------------------
+// CLIENT INTAKE FORM
+// ------------------------------
+model IntakeForm {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  fields      String   // JSON array of form fields
+  practiceArea String?
+  isActive    Boolean  @default(true)
+  createdBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  submissions IntakeSubmission[]  // Form submissions
+}
+
+// ------------------------------
+// INTAKE SUBMISSION
+// ------------------------------
+model IntakeSubmission {
+  id          String   @id @default(cuid())
+  formId      String
+  form        IntakeForm @relation(fields: [formId], references: [id], onDelete: Cascade)
+  data        String   // JSON: submitted form data
+  status      String   @default("new") // new, reviewed, converted, rejected
+  convertedToClientId String?
+  convertedToMatterId String?
+  reviewedBy  String?
+  reviewedAt  DateTime?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ------------------------------
+// SETTLEMENT STATEMENT
+// ------------------------------
+model SettlementStatement {
+  id              String   @id @default(cuid())
+  matterId        String
+  matter          Matter   @relation(fields: [matterId], references: [id], onDelete: Cascade)
+  grossSettlement Float
+  attorneyFees    Float
+  expenses        Float
+  liens           Float?   // Medical liens, etc.
+  netToClient     Float
+  breakdown       String?  // JSON: detailed breakdown
+  status          String   @default("draft") // draft, sent, approved, disputed
+  clientApprovedAt DateTime?
+  pdfPath         String?  // Generated PDF path
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }

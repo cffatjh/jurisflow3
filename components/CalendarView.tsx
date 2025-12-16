@@ -59,7 +59,7 @@ const CalendarView: React.FC = () => {
   };
 
   return (
-    <div className="p-8 h-full flex flex-col bg-gray-50/50 relative">
+    <div className="p-8 h-full flex flex-col bg-gray-50/50 relative overflow-y-auto">
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold font-sans text-slate-900">{t('cal_title')}</h1>

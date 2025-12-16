@@ -3025,6 +3025,242 @@ app.delete('/api/templates/:id', asyncHandler(async (req, res) => {
   res.status(204).send();
 }));
 
+// ===================== TRUST ACCOUNTING =====================
+
+// Get trust transactions for a matter
+app.get('/api/matters/:matterId/trust', asyncHandler(async (req, res) => {
+  const { matterId } = req.params;
+  const transactions = await prisma.trustTransaction.findMany({
+    where: { matterId },
+    orderBy: { createdAt: 'desc' },
+  });
+  const matter = await prisma.matter.findUnique({ where: { id: matterId }, select: { trustBalance: true } });
+  res.json({ transactions, currentBalance: matter?.trustBalance || 0 });
+}));
+
+// Create trust transaction
+app.post('/api/matters/:matterId/trust', asyncHandler(async (req, res) => {
+  const { matterId } = req.params;
+  const { type, amount, description, reference } = req.body;
+
+  const matter = await prisma.matter.findUnique({ where: { id: matterId } });
+  if (!matter) return res.status(404).json({ error: 'Matter not found' });
+
+  let newBalance = matter.trustBalance;
+  if (type === 'deposit') newBalance += amount;
+  else if (type === 'withdrawal' || type === 'transfer') newBalance -= amount;
+  else if (type === 'refund') newBalance -= amount;
+
+  const transaction = await prisma.trustTransaction.create({
+    data: { matterId, type, amount, description, reference, balance: newBalance, createdBy: req.adminId },
+  });
+
+  await prisma.matter.update({ where: { id: matterId }, data: { trustBalance: newBalance } });
+
+  const userInfo = getUserInfoFromRequest(req);
+  await createAuditLog({ ...userInfo, action: 'CREATE', entityType: 'TRUST_TRANSACTION', entityId: transaction.id, details: `${type} $${amount}` });
+
+  res.status(201).json(transaction);
+}));
+
+// ===================== WORKFLOWS =====================
+
+// Get all workflows
+app.get('/api/workflows', asyncHandler(async (req, res) => {
+  const workflows = await prisma.workflow.findMany({ orderBy: { createdAt: 'desc' }, include: { executions: { take: 5, orderBy: { executedAt: 'desc' } } } });
+  res.json(workflows);
+}));
+
+// Create workflow
+app.post('/api/workflows', asyncHandler(async (req, res) => {
+  const { name, description, trigger, triggerConfig, actions, isActive } = req.body;
+  const workflow = await prisma.workflow.create({
+    data: { name, description, trigger, triggerConfig, actions: JSON.stringify(actions), isActive: isActive ?? true, createdBy: req.adminId },
+  });
+  res.status(201).json(workflow);
+}));
+
+// Update workflow
+app.put('/api/workflows/:id', asyncHandler(async (req, res) => {
+  const { name, description, trigger, triggerConfig, actions, isActive } = req.body;
+  const workflow = await prisma.workflow.update({
+    where: { id: req.params.id },
+    data: { name, description, trigger, triggerConfig, actions: actions ? JSON.stringify(actions) : undefined, isActive },
+  });
+  res.json(workflow);
+}));
+
+// Delete workflow
+app.delete('/api/workflows/:id', asyncHandler(async (req, res) => {
+  await prisma.workflow.delete({ where: { id: req.params.id } });
+  res.status(204).send();
+}));
+
+// ===================== APPOINTMENT REQUESTS =====================
+
+// Get appointment requests (for attorneys)
+app.get('/api/appointments', asyncHandler(async (req, res) => {
+  const appointments = await prisma.appointmentRequest.findMany({
+    orderBy: { createdAt: 'desc' },
+    include: { client: { select: { id: true, name: true, email: true } } },
+  });
+  res.json(appointments);
+}));
+
+// Update appointment status (approve/reject)
+app.put('/api/appointments/:id', asyncHandler(async (req, res) => {
+  const { status, approvedDate, assignedTo } = req.body;
+  const appointment = await prisma.appointmentRequest.update({
+    where: { id: req.params.id },
+    data: { status, approvedDate: approvedDate ? new Date(approvedDate) : undefined, assignedTo },
+  });
+  res.json(appointment);
+}));
+
+// Client: Create appointment request
+app.post('/api/client/appointments', asyncHandler(async (req: any, res) => {
+  if (!req.clientId) return res.status(401).json({ error: 'Client auth required' });
+  const { matterId, requestedDate, duration, type, notes } = req.body;
+  const appointment = await prisma.appointmentRequest.create({
+    data: { clientId: req.clientId, matterId, requestedDate: new Date(requestedDate), duration: duration || 30, type, notes },
+  });
+  res.status(201).json(appointment);
+}));
+
+// Client: Get my appointments
+app.get('/api/client/appointments', asyncHandler(async (req: any, res) => {
+  if (!req.clientId) return res.status(401).json({ error: 'Client auth required' });
+  const appointments = await prisma.appointmentRequest.findMany({
+    where: { clientId: req.clientId },
+    orderBy: { createdAt: 'desc' },
+  });
+  res.json(appointments);
+}));
+
+// ===================== INTAKE FORMS =====================
+
+// Get intake forms
+app.get('/api/intake-forms', asyncHandler(async (req, res) => {
+  const forms = await prisma.intakeForm.findMany({ where: { isActive: true }, orderBy: { createdAt: 'desc' } });
+  res.json(forms);
+}));
+
+// Create intake form
+app.post('/api/intake-forms', asyncHandler(async (req, res) => {
+  const { name, description, fields, practiceArea, isActive } = req.body;
+  const form = await prisma.intakeForm.create({
+    data: { name, description, fields: JSON.stringify(fields), practiceArea, isActive: isActive ?? true, createdBy: req.adminId },
+  });
+  res.status(201).json(form);
+}));
+
+// Get intake submissions
+app.get('/api/intake-submissions', asyncHandler(async (req, res) => {
+  const submissions = await prisma.intakeSubmission.findMany({
+    orderBy: { createdAt: 'desc' },
+    include: { form: { select: { name: true } } },
+  });
+  res.json(submissions);
+}));
+
+// Public: Submit intake form
+app.post('/api/public/intake/:formId', asyncHandler(async (req, res) => {
+  const { formId } = req.params;
+  const form = await prisma.intakeForm.findUnique({ where: { id: formId } });
+  if (!form || !form.isActive) return res.status(404).json({ error: 'Form not found' });
+
+  const submission = await prisma.intakeSubmission.create({
+    data: { formId, data: JSON.stringify(req.body) },
+  });
+  res.status(201).json({ success: true, id: submission.id });
+}));
+
+// Update intake submission (review, convert)
+app.put('/api/intake-submissions/:id', asyncHandler(async (req, res) => {
+  const { status, notes, convertedToClientId, convertedToMatterId } = req.body;
+  const submission = await prisma.intakeSubmission.update({
+    where: { id: req.params.id },
+    data: { status, notes, convertedToClientId, convertedToMatterId, reviewedBy: req.adminId, reviewedAt: new Date() },
+  });
+  res.json(submission);
+}));
+
+// ===================== SETTLEMENT STATEMENTS =====================
+
+// Get settlement statements for a matter
+app.get('/api/matters/:matterId/settlement', asyncHandler(async (req, res) => {
+  const statements = await prisma.settlementStatement.findMany({
+    where: { matterId: req.params.matterId },
+    orderBy: { createdAt: 'desc' },
+  });
+  res.json(statements);
+}));
+
+// Create settlement statement
+app.post('/api/matters/:matterId/settlement', asyncHandler(async (req, res) => {
+  const { grossSettlement, attorneyFees, expenses, liens, breakdown } = req.body;
+  const netToClient = grossSettlement - attorneyFees - expenses - (liens || 0);
+
+  const statement = await prisma.settlementStatement.create({
+    data: {
+      matterId: req.params.matterId,
+      grossSettlement,
+      attorneyFees,
+      expenses,
+      liens,
+      netToClient,
+      breakdown: breakdown ? JSON.stringify(breakdown) : undefined,
+    },
+  });
+  res.status(201).json(statement);
+}));
+
+// Update settlement statement
+app.put('/api/settlement/:id', asyncHandler(async (req, res) => {
+  const { status, clientApprovedAt } = req.body;
+  const statement = await prisma.settlementStatement.update({
+    where: { id: req.params.id },
+    data: { status, clientApprovedAt: clientApprovedAt ? new Date(clientApprovedAt) : undefined },
+  });
+  res.json(statement);
+}));
+
+// ===================== SIGNATURE REQUESTS =====================
+
+// Create signature request
+app.post('/api/documents/:documentId/signature', asyncHandler(async (req, res) => {
+  const { clientId, expiresAt } = req.body;
+  const request = await prisma.signatureRequest.create({
+    data: { documentId: req.params.documentId, clientId, expiresAt: expiresAt ? new Date(expiresAt) : undefined },
+  });
+  res.status(201).json(request);
+}));
+
+// Client: Sign document
+app.post('/api/client/sign/:requestId', asyncHandler(async (req: any, res) => {
+  if (!req.clientId) return res.status(401).json({ error: 'Client auth required' });
+  const { signatureData } = req.body;
+
+  const request = await prisma.signatureRequest.findUnique({ where: { id: req.params.requestId } });
+  if (!request || request.clientId !== req.clientId) return res.status(404).json({ error: 'Signature request not found' });
+  if (request.status !== 'pending') return res.status(400).json({ error: 'Already processed' });
+
+  const updated = await prisma.signatureRequest.update({
+    where: { id: req.params.requestId },
+    data: { status: 'signed', signedAt: new Date(), signatureData, ipAddress: req.ip, userAgent: req.get('user-agent') },
+  });
+  res.json(updated);
+}));
+
+// Get signature requests for a document
+app.get('/api/documents/:documentId/signatures', asyncHandler(async (req, res) => {
+  const requests = await prisma.signatureRequest.findMany({
+    where: { documentId: req.params.documentId },
+    include: { client: { select: { name: true, email: true } } },
+  });
+  res.json(requests);
+}));
+
 // ===================== STATIC FILES & FRONTEND =====================
 // Serve static files from dist folder in production
 const __dirname = path.dirname(new URL(import.meta.url).pathname);

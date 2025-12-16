@@ -93,7 +93,7 @@ const MainLayout = () => {
   );
 
   return (
-    <div className="flex h-screen w-full bg-slate-850 font-sans overflow-hidden">
+    <div className="flex h-screen w-full bg-slate-900 font-sans overflow-hidden">
 
       <CommandPalette
         isOpen={isCmdOpen}
@@ -102,7 +102,7 @@ const MainLayout = () => {
       />
 
       {/* SIDEBAR */}
-      <aside className="w-64 bg-slate-850 flex flex-col z-20 relative border-r border-slate-700">
+      <aside className="w-64 bg-slate-900 flex flex-col z-20 relative border-r border-slate-700">
         <div className="h-16 flex items-center px-6 mb-2">
           <Scale className="w-6 h-6 text-white mr-3" />
           <span className="text-xl font-bold text-white tracking-tight">Juris<span className="text-primary-500">Flow</span></span>

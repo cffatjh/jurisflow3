@@ -75,6 +75,8 @@ interface DataContextType {
   addTask: (item: any) => Promise<void>;
   updateTaskStatus: (id: string, status: TaskStatus) => Promise<void>;
   updateTask: (id: string, data: Partial<Task>) => Promise<void>;
+  deleteTask: (id: string) => Promise<void>;
+  archiveTask: (id: string) => Promise<void>;
   createTasksFromTemplate: (data: { templateId: string; matterId?: string; assignedTo?: string; baseDate?: string }) => Promise<void>;
   markAsBilled: (matterId: string) => Promise<void>;
   markNotificationRead: (id: string) => Promise<void>;
@@ -320,6 +322,26 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const deleteTask = async (id: string) => {
+    const prevTasks = tasks;
+    setTasks(prev => prev.filter(t => t.id !== id));
+    try {
+      await api.deleteTask(id);
+    } catch (e) {
+      console.error("API Error (deleteTask)", e);
+      setTasks(prevTasks); // revert on error
+    }
+  };
+
+  const archiveTask = async (id: string) => {
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, status: 'Archived' as TaskStatus } : t));
+    try {
+      await api.updateTaskStatus(id, 'Archived');
+    } catch (e) {
+      console.error("API Error (archiveTask)", e);
+    }
+  };
+
   const addTimeEntry = async (entryData: any) => {
     const tempEntry = { ...entryData, id: `te-${Date.now()}` };
     setTimeEntries(prev => [tempEntry, ...prev]);
@@ -497,7 +519,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       matters, clients, timeEntries, expenses, messages, events, documents, invoices, leads, tasks, taskTemplates, notifications,
       addMatter, updateMatter, deleteMatter,
       addTimeEntry, addExpense, addMessage, markMessageRead, addEvent, deleteEvent, addDocument, updateDocument, deleteDocument, addInvoice, updateInvoice, deleteInvoice, addClient, addLead, updateLead, deleteLead, addTask,
-      updateTaskStatus, updateTask, createTasksFromTemplate, markAsBilled, markNotificationRead, markNotificationUnread, markAllNotificationsRead, updateUserProfile,
+      updateTaskStatus, updateTask, deleteTask, archiveTask, createTasksFromTemplate, markAsBilled, markNotificationRead, markNotificationUnread, markAllNotificationsRead, updateUserProfile,
       bulkAssignDocuments
     }}>
       {children}
