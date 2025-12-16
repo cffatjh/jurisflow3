@@ -340,6 +340,12 @@ const ensureTestAttorney = async () => {
 };
 ensureTestAttorney().catch((err) => console.error('Failed to ensure test attorney', err));
 
+// ===================== HEALTH CHECK =====================
+// Required for Railway/production health monitoring
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
 // ===================== AUTH =====================
 // Note: authLimiter is already applied via app.use('/api/login', authLimiter) above
 app.post('/api/login', asyncHandler(async (req: any, res: any) => {
