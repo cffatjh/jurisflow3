@@ -2683,68 +2683,97 @@ app.post('/api/client/documents/upload', verifyClientToken, uploadSingle, asyncH
 // ===================== DOCUMENT UPLOAD (Attorney) =====================
 // Upload single document
 app.post('/api/documents/upload', uploadSingle, asyncHandler(async (req: any, res: any) => {
-  if (!req.file) {
-    return res.status(400).json({ message: 'No file uploaded' });
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'No file uploaded. Please select a file.' });
+    }
+
+    const { matterId, description, tags } = req.body;
+    const token = req.headers.authorization?.replace('Bearer ', '');
+
+    if (!token) {
+      return res.status(401).json({ message: 'Unauthorized - please login again' });
+    }
+
+    let decoded: any;
+    try {
+      decoded = jwt.verify(token, JWT_SECRET) as any;
+    } catch (jwtError) {
+      return res.status(401).json({ message: 'Session expired - please login again' });
+    }
+
+    const originalName = req.file.originalname || 'document';
+    const groupKey = `${matterId || 'unassigned'}:${originalName}`.toLowerCase();
+
+    const latest = await prisma.document.findFirst({
+      where: { groupKey },
+      orderBy: { version: 'desc' },
+      select: { version: true },
+    });
+    const nextVersion = (latest?.version || 0) + 1;
+
+    const document = await prisma.document.create({
+      data: {
+        name: originalName,
+        fileName: req.file.filename,
+        filePath: `/uploads/${req.file.filename}`,
+        fileSize: req.file.size,
+        mimeType: req.file.mimetype,
+        matterId: matterId || null,
+        uploadedBy: decoded.sub,
+        description: description || null,
+        groupKey,
+        version: nextVersion,
+        tags: tags ? (typeof tags === 'string' ? tags : JSON.stringify(tags)) : null,
+      },
+    });
+
+    // Get user info for audit log
+    const user = await prisma.user.findUnique({ where: { id: decoded.sub } });
+
+    // Log document upload
+    await createAuditLog({
+      userId: decoded.sub,
+      userEmail: decoded.email || user?.email || undefined,
+      action: 'UPLOAD',
+      entityType: 'DOCUMENT',
+      entityId: document.id,
+      newValues: {
+        name: document.name,
+        fileName: document.fileName,
+        fileSize: document.fileSize,
+        mimeType: document.mimeType,
+        matterId: document.matterId,
+      },
+      details: `User uploaded document: ${document.name} (${(document.fileSize / 1024).toFixed(2)} KB)`,
+      ipAddress: req.ip || req.socket.remoteAddress || undefined,
+      userAgent: req.get('user-agent') || undefined,
+    });
+
+    res.status(201).json(document);
+  } catch (error: any) {
+    console.error('Document upload error:', error);
+
+    // Check for specific error types
+    if (error.code === 'ENOENT' || error.code === 'EACCES') {
+      return res.status(500).json({
+        message: 'File storage temporarily unavailable. Please try again later.',
+        error: 'Storage access error'
+      });
+    }
+
+    if (error.name === 'PrismaClientKnownRequestError') {
+      return res.status(500).json({
+        message: 'Database error while saving document. Please try again.',
+        error: error.message
+      });
+    }
+
+    res.status(500).json({
+      message: 'Failed to upload document. Please try again.',
+      error: error.message || 'Unknown error'
+    });
   }
-
-  const { matterId, description, tags } = req.body;
-  const token = req.headers.authorization?.replace('Bearer ', '');
-
-  if (!token) {
-    return res.status(401).json({ message: 'Unauthorized' });
-  }
-
-  const decoded = jwt.verify(token, JWT_SECRET) as any;
-
-  const originalName = req.file.originalname || 'document';
-  const groupKey = `${matterId || 'unassigned'}:${originalName}`.toLowerCase();
-
-  const latest = await prisma.document.findFirst({
-    where: { groupKey },
-    orderBy: { version: 'desc' },
-    select: { version: true },
-  });
-  const nextVersion = (latest?.version || 0) + 1;
-
-  const document = await prisma.document.create({
-    data: {
-      name: originalName,
-      fileName: req.file.filename,
-      filePath: `/uploads/${req.file.filename}`,
-      fileSize: req.file.size,
-      mimeType: req.file.mimetype,
-      matterId: matterId || null,
-      uploadedBy: decoded.sub,
-      description: description || null,
-      groupKey,
-      version: nextVersion,
-      tags: tags ? (typeof tags === 'string' ? tags : JSON.stringify(tags)) : null,
-    },
-  });
-
-  // Get user info for audit log
-  const user = await prisma.user.findUnique({ where: { id: decoded.sub } });
-
-  // Log document upload
-  await createAuditLog({
-    userId: decoded.sub,
-    userEmail: decoded.email || user?.email || undefined,
-    action: 'UPLOAD',
-    entityType: 'DOCUMENT',
-    entityId: document.id,
-    newValues: {
-      name: document.name,
-      fileName: document.fileName,
-      fileSize: document.fileSize,
-      mimeType: document.mimeType,
-      matterId: document.matterId,
-    },
-    details: `User uploaded document: ${document.name} (${(document.fileSize / 1024).toFixed(2)} KB)`,
-    ipAddress: req.ip || req.socket.remoteAddress || undefined,
-    userAgent: req.get('user-agent') || undefined,
-  });
-
-  res.status(201).json(document);
 }));
 
 // Get documents
