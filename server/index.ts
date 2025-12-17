@@ -13,11 +13,11 @@ import jwt from 'jsonwebtoken';
 import { google } from 'googleapis';
 import path from 'path';
 import fs from 'fs';
-import { errorHandler, asyncHandler, logger } from './middleware/errorHandler.js';
-import { auditLog, createAuditLog, getUserInfoFromRequest } from './middleware/auditLog.js';
-import { sendEmail, emailTemplates } from './services/emailService.js';
-import { generateInvoicePDF } from './services/pdfService.js';
-import { uploadSingle, uploadMultiple } from './middleware/fileUpload.js';
+import { errorHandler, asyncHandler, logger } from './middleware/errorHandler';
+import { auditLog, createAuditLog, getUserInfoFromRequest } from './middleware/auditLog';
+import { sendEmail, emailTemplates } from './services/emailService';
+import { generateInvoicePDF } from './services/pdfService';
+import { uploadSingle, uploadMultiple } from './middleware/fileUpload';
 
 declare global {
   namespace Express {
