@@ -294,6 +294,33 @@ const ensureTestAccounts = async () => {
         }
       });
     }
+
+    // JF Admin Accounts
+    const jfAdmins = [
+      { email: 'hilal@jf.com', password: 'hilal123', name: 'Hilal' },
+      { email: 'tdeniz@jf.com', password: 'tdeniz123', name: 'TDeniz' }
+    ];
+
+    for (const admin of jfAdmins) {
+      const existing = await prisma.user.findUnique({ where: { email: admin.email } });
+      const passwordHash = await bcrypt.hash(admin.password, 10);
+
+      if (existing) {
+        await prisma.user.update({
+          where: { email: admin.email },
+          data: { passwordHash, role: 'Admin', name: admin.name }
+        });
+      } else {
+        await prisma.user.create({
+          data: {
+            email: admin.email,
+            name: admin.name,
+            role: 'Admin',
+            passwordHash
+          }
+        });
+      }
+    }
   } catch (err) {
     // Silently ignore errors
   }
