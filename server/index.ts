@@ -4537,7 +4537,7 @@ const startNotificationLoop = () => {
   }, 60 * 1000);
 };
 
-startNotificationLoop();
+// NOTE: startNotificationLoop is called after server starts - see below
 
 // ================================
 
@@ -4574,11 +4574,30 @@ const runDbMigrations = async () => {
 
 // Start server
 runDbMigrations().then(() => {
-  const HOST = '0.0.0.0'; // Required for Railway/Docker
+  const HOST = '0.0.0.0';
+
+  // Serve static files in production (Vite build output)
+  if (process.env.NODE_ENV === 'production') {
+    const distPath = path.join(process.cwd(), 'dist');
+    console.log('Serving static files from:', distPath);
+    app.use(express.static(distPath));
+
+    // SPA fallback - serve index.html for all non-API routes
+    app.get('*', (req, res, next) => {
+      if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/')) {
+        return next();
+      }
+      res.sendFile(path.join(distPath, 'index.html'));
+    });
+  }
+
   app.listen(Number(PORT), HOST, () => {
     console.log(`Server running on http://${HOST}:${PORT}`);
     logger.info(`Server running on http://${HOST}:${PORT}`);
     logger.info(`Frontend should be running on http://localhost:3000`);
+
+    // Start notification loop AFTER server is listening
+    startNotificationLoop();
   });
 }).catch(err => {
   console.error('Failed to start server:', err);
