@@ -93,11 +93,11 @@ const Dashboard: React.FC = () => {
     .reduce((sum, e) => sum + (e.amount || 0), 0);
   const totalWIP = unbilledTimeValue + unbilledExpenseValue;
 
-  const overdueInvoices = invoices.filter(inv => inv.status === 'Overdue');
-  const paidInvoices = invoices.filter(inv => inv.status === 'Paid');
+  const overdueInvoices = invoices.filter((inv: any) => inv.status === 'OVERDUE');
+  const paidInvoices = invoices.filter((inv: any) => inv.status === 'PAID');
   const paidInvoicesTotal = paidInvoices.reduce((sum, inv) => sum + (inv.amount || 0), 0);
   const outstandingInvoicesTotal = invoices
-    .filter(inv => inv.status === 'Sent' || inv.status === 'Overdue')
+    .filter((inv: any) => inv.status === 'SENT' || inv.status === 'OVERDUE')
     .reduce((sum, inv) => sum + (inv.amount || 0), 0);
 
   const upcomingEvents = events
