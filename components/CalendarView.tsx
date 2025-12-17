@@ -19,6 +19,8 @@ const CalendarView: React.FC = () => {
   const [newTitle, setNewTitle] = useState('');
   const [newType, setNewType] = useState('Meeting');
   const [newTime, setNewTime] = useState('09:00');
+  const [newDuration, setNewDuration] = useState(60); // dakika
+  const [newReminderMinutes, setNewReminderMinutes] = useState(30); // 30 dk önce default
 
   // --- CALENDAR LOGIC ---
   const currentDate = new Date();
@@ -47,10 +49,15 @@ const CalendarView: React.FC = () => {
       id: `ev${Date.now()}`,
       title: newTitle,
       date: eventDate.toISOString(),
-      type: newType as any
+      type: newType as any,
+      duration: newDuration,
+      reminderMinutes: newReminderMinutes,
+      reminderSent: false
     });
     setShowModal(false);
     setNewTitle('');
+    setNewDuration(60);
+    setNewReminderMinutes(30);
   };
 
   const openAddModal = (day: number) => {
@@ -132,9 +139,18 @@ const CalendarView: React.FC = () => {
                     {dayEvents.map(ev => (
                       <div
                         key={ev.id}
-                        className={`text-[10px] px-1.5 py-0.5 rounded truncate font-medium group/item relative ${ev.type === 'Court' ? 'bg-red-100 text-red-700' :
-                          ev.type === 'Deadline' ? 'bg-amber-100 text-amber-700' :
-                            'bg-blue-100 text-blue-700'
+                        className={`text-[10px] px-1.5 py-0.5 rounded truncate font-medium group/item relative ${
+                          // Şu an gerçekleşiyor mu kontrol et
+                          (() => {
+                            const now = Date.now();
+                            const start = new Date(ev.date).getTime();
+                            const end = start + (ev.duration || 60) * 60 * 1000;
+                            const isHappening = now >= start && now <= end;
+                            if (isHappening) return 'bg-green-500 text-white animate-pulse';
+                            return ev.type === 'Court' ? 'bg-red-100 text-red-700' :
+                              ev.type === 'Deadline' ? 'bg-amber-100 text-amber-700' :
+                                'bg-blue-100 text-blue-700';
+                          })()
                           }`}
                         title={ev.title}
                       >
@@ -203,10 +219,22 @@ const CalendarView: React.FC = () => {
                           {new Date(event.date).toLocaleDateString() + " " + new Date(event.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </p>
                         <span className={`inline-block mt-2 px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wide
-                         ${event.type === 'Court' ? 'bg-red-50 text-red-700' :
-                            event.type === 'Deadline' ? 'bg-amber-50 text-amber-700' : 'bg-blue-50 text-blue-700'
-                          }`}>
-                          {event.type}
+                         ${(() => {
+                            const now = Date.now();
+                            const start = new Date(event.date).getTime();
+                            const end = start + (event.duration || 60) * 60 * 1000;
+                            const isHappening = now >= start && now <= end;
+                            if (isHappening) return 'bg-green-500 text-white animate-pulse';
+                            return event.type === 'Court' ? 'bg-red-50 text-red-700' :
+                              event.type === 'Deadline' ? 'bg-amber-50 text-amber-700' : 'bg-blue-50 text-blue-700';
+                          })()}`}>
+                          {(() => {
+                            const now = Date.now();
+                            const start = new Date(event.date).getTime();
+                            const end = start + (event.duration || 60) * 60 * 1000;
+                            const isHappening = now >= start && now <= end;
+                            return isHappening ? '🔴 ŞU AN' : event.type;
+                          })()}
                         </span>
                       </div>
                       <button
@@ -253,17 +281,46 @@ const CalendarView: React.FC = () => {
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Event Title</label>
                 <input required className="w-full border border-gray-300 p-2.5 rounded-lg bg-white text-slate-900 focus:ring-2 focus:ring-slate-500 outline-none" placeholder="e.g. Client Meeting" value={newTitle} onChange={e => setNewTitle(e.target.value)} />
               </div>
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Type</label>
-                <select className="w-full border border-gray-300 p-2.5 rounded-lg bg-white text-slate-900 focus:ring-2 focus:ring-slate-500 outline-none" value={newType} onChange={e => setNewType(e.target.value)}>
-                  <option>Meeting</option>
-                  <option>Court</option>
-                  <option>Deadline</option>
-                </select>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Type</label>
+                  <select className="w-full border border-gray-300 p-2.5 rounded-lg bg-white text-slate-900 focus:ring-2 focus:ring-slate-500 outline-none" value={newType} onChange={e => setNewType(e.target.value)}>
+                    <option>Meeting</option>
+                    <option>Court</option>
+                    <option>Deadline</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Time</label>
+                  <input type="time" className="w-full border border-gray-300 p-2.5 rounded-lg bg-white text-slate-900 focus:ring-2 focus:ring-slate-500 outline-none" value={newTime} onChange={e => setNewTime(e.target.value)} />
+                </div>
               </div>
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Time</label>
-                <input type="time" className="w-full border border-gray-300 p-2.5 rounded-lg bg-white text-slate-900 focus:ring-2 focus:ring-slate-500 outline-none" value={newTime} onChange={e => setNewTime(e.target.value)} />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Süre (dk)</label>
+                  <select className="w-full border border-gray-300 p-2.5 rounded-lg bg-white text-slate-900 focus:ring-2 focus:ring-slate-500 outline-none" value={newDuration} onChange={e => setNewDuration(Number(e.target.value))}>
+                    <option value={15}>15 dakika</option>
+                    <option value={30}>30 dakika</option>
+                    <option value={60}>1 saat</option>
+                    <option value={90}>1.5 saat</option>
+                    <option value={120}>2 saat</option>
+                    <option value={180}>3 saat</option>
+                    <option value={240}>4 saat</option>
+                    <option value={480}>Tüm gün</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Hatırlatma</label>
+                  <select className="w-full border border-gray-300 p-2.5 rounded-lg bg-white text-slate-900 focus:ring-2 focus:ring-slate-500 outline-none" value={newReminderMinutes} onChange={e => setNewReminderMinutes(Number(e.target.value))}>
+                    <option value={0}>Hatırlatma yok</option>
+                    <option value={5}>5 dakika önce</option>
+                    <option value={15}>15 dakika önce</option>
+                    <option value={30}>30 dakika önce</option>
+                    <option value={60}>1 saat önce</option>
+                    <option value={120}>2 saat önce</option>
+                    <option value={1440}>1 gün önce</option>
+                  </select>
+                </div>
               </div>
               <div className="flex gap-2 pt-2">
                 <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-2 text-gray-600 font-bold hover:bg-gray-100 rounded-lg">Cancel</button>

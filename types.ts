@@ -264,6 +264,9 @@ export interface CalendarEvent {
   date: string;
   type: 'Court' | 'Meeting' | 'Deadline';
   matterId?: string;
+  reminderMinutes?: number; // Kaç dakika önce bildirim gönderilecek (0, 15, 30, 60, 120, 1440)
+  duration?: number; // Etkinlik süresi dakika cinsinden
+  reminderSent?: boolean; // Bildirim gönderildi mi
 }
 
 export interface DocumentFile {

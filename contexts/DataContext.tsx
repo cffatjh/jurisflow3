@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Matter, Client, TimeEntry, Message, Expense, CalendarEvent, DocumentFile, Invoice, Lead, Task, TaskStatus, PracticeArea, FeeStructure, CaseStatus, Notification, TaskTemplate } from '../types';
+import { Matter, Client, TimeEntry, Message, Expense, CalendarEvent, DocumentFile, Invoice, Lead, Task, TaskStatus, PracticeArea, FeeStructure, CaseStatus, Notification as AppNotification, TaskTemplate } from '../types';
 import { api } from '../services/api';
 import { useAuth } from './AuthContext';
 
@@ -51,7 +51,7 @@ interface DataContextType {
   leads: Lead[];
   tasks: Task[];
   taskTemplates: TaskTemplate[];
-  notifications: Notification[];
+  notifications: AppNotification[];
 
   addMatter: (item: any) => Promise<void>;
   updateMatter: (id: string, data: Partial<Matter>) => Promise<void>;
@@ -102,7 +102,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
 
   // Local-only state
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -235,6 +235,65 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     };
     loadData();
   }, [isAuthenticated]);
+
+  // --- EVENT REMINDER SYSTEM ---
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const checkEventReminders = () => {
+      const now = Date.now();
+
+      events.forEach(event => {
+        if (!event.reminderMinutes || event.reminderMinutes === 0) return;
+        if (event.reminderSent) return;
+
+        const eventTime = new Date(event.date).getTime();
+        const reminderTime = eventTime - (event.reminderMinutes * 60 * 1000);
+
+        // Check if we're within 1 minute of the reminder time
+        if (now >= reminderTime && now < reminderTime + 60000) {
+          // Create notification
+          const minutesUntil = Math.round((eventTime - now) / 60000);
+          const timeStr = minutesUntil > 60
+            ? `${Math.round(minutesUntil / 60)} saat`
+            : `${minutesUntil} dakika`;
+
+          const newNotification: AppNotification = {
+            id: `notif-event-${event.id}-${Date.now()}`,
+            userId: 'current',
+            title: `📅 Yaklaşan Etkinlik`,
+            message: `"${event.title}" ${timeStr} sonra başlayacak!`,
+            type: 'warning',
+            read: false,
+            link: 'tab:calendar',
+            createdAt: new Date().toISOString()
+          };
+
+          setNotifications(prev => [newNotification, ...prev]);
+
+          // Mark reminder as sent in local state
+          setEvents(prev => prev.map(e =>
+            e.id === event.id ? { ...e, reminderSent: true } : e
+          ));
+
+          // Show browser notification if permission granted
+          if ('Notification' in window && Notification.permission === 'granted') {
+            new window.Notification(`📅 ${event.title}`, {
+              body: `${timeStr} sonra başlayacak!`,
+              icon: '/icons/icon-192.png',
+              tag: `event-${event.id}`
+            });
+          }
+        }
+      });
+    };
+
+    // Check immediately and then every 30 seconds
+    checkEventReminders();
+    const interval = setInterval(checkEventReminders, 30000);
+
+    return () => clearInterval(interval);
+  }, [events, isAuthenticated]);
 
   // --- ACTIONS (Optimistic Updates) ---
 
