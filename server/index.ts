@@ -4262,7 +4262,7 @@ const runDbMigrations = async () => {
     try {
       const { execSync } = await import('child_process');
       console.log('Running prisma db push...');
-      execSync('npx prisma db push --skip-generate', {
+      execSync('npx prisma db push --skip-generate --accept-data-loss', {
         stdio: 'inherit',
         env: process.env as NodeJS.ProcessEnv
       });
