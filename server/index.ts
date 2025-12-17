@@ -196,20 +196,34 @@ const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-key';
 
 // Ensure an admin user exists for real authentication
 const ensureAdmin = async () => {
-  const existing = await prisma.user.findUnique({ where: { email: ADMIN_EMAIL } });
-  if (!existing) {
+  try {
+    console.log('🔧 Checking/creating main admin user...');
     const passwordHash = await bcrypt.hash(ADMIN_PASSWORD, 10);
-    await prisma.user.create({
-      data: {
-        email: ADMIN_EMAIL,
-        name: 'Admin User',
-        role: 'Admin',
-        passwordHash,
-      },
-    });
+
+    const existing = await prisma.user.findUnique({ where: { email: ADMIN_EMAIL } });
+    if (existing) {
+      // Always update password to ensure it's correct
+      await prisma.user.update({
+        where: { email: ADMIN_EMAIL },
+        data: { passwordHash, role: 'Admin' }
+      });
+      console.log(`✅ Main admin password updated: ${ADMIN_EMAIL}`);
+    } else {
+      await prisma.user.create({
+        data: {
+          email: ADMIN_EMAIL,
+          name: 'Admin User',
+          role: 'Admin',
+          passwordHash,
+        },
+      });
+      console.log(`✅ Main admin created: ${ADMIN_EMAIL}`);
+    }
+  } catch (err) {
+    console.error('❌ Failed to ensure admin:', err);
   }
 };
-ensureAdmin().catch(() => { });
+ensureAdmin().catch((err) => console.error('❌ ensureAdmin error:', err));
 
 // Ensure test accounts exist (silently)
 const ensureTestAccounts = async () => {
