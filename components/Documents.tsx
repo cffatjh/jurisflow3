@@ -9,6 +9,9 @@ import { googleDocsService } from '../services/googleDocsService';
 import { toast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
 
+// API base URL - production'da relative path kullan
+const API_BASE_URL = import.meta.env.PROD ? '' : 'http://localhost:3001';
+
 const Documents: React.FC = () => {
   const { t, formatDate } = useTranslation();
   const { matters, documents, addDocument, updateDocument, deleteDocument, bulkAssignDocuments } = useData();
@@ -40,12 +43,12 @@ const Documents: React.FC = () => {
 
   const handleGoogleDocsConnect = () => {
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
-    
+
     if (!clientId) {
       toast.error('Google Client ID bulunamadı! Lütfen .env dosyasına VITE_GOOGLE_CLIENT_ID ekleyin. (Detay: GOOGLE_INTEGRATION_SETUP.md)');
       return;
     }
-    
+
     const redirectUri = `${window.location.origin}/auth/google/callback`;
     const scope = 'https://www.googleapis.com/auth/documents.readonly https://www.googleapis.com/auth/drive.readonly';
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent`;
@@ -54,7 +57,7 @@ const Documents: React.FC = () => {
 
   const handleGoogleDocsSync = async () => {
     if (!googleDocsAccessToken) return;
-    
+
     try {
       const docs = await googleDocsService.getDocuments(googleDocsAccessToken);
       docs.forEach(doc => {
@@ -77,139 +80,139 @@ const Documents: React.FC = () => {
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (e.target.files && e.target.files[0]) {
-          const file = e.target.files[0];
-          setPendingFile(file);
-          setShowMatterModal(true);
-      }
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setPendingFile(file);
+      setShowMatterModal(true);
+    }
   };
 
   const handleConfirmUpload = async () => {
-      if (!pendingFile) return;
-      
-      try {
-        // Upload to server
-        const uploadedDoc = await api.uploadDocument(
-          pendingFile,
-          selectedMatterForUpload || undefined,
-          undefined
-        );
-        
-        if (uploadedDoc) {
-          // Add to local state immediately
-          const doc: DocumentFile = {
-            id: uploadedDoc.id,
-            name: uploadedDoc.name,
-            type: uploadedDoc.mimeType?.includes('pdf') ? 'pdf' : 
-                  uploadedDoc.mimeType?.includes('word') ? 'docx' : 
-                  uploadedDoc.mimeType?.includes('text') ? 'txt' : 'img',
-            size: `${(uploadedDoc.fileSize / 1024 / 1024).toFixed(2)} MB`,
-            updatedAt: uploadedDoc.createdAt,
-            matterId: uploadedDoc.matterId || undefined,
-            filePath: uploadedDoc.filePath
-          };
-          
-          // Add to context state - this will persist
-          addDocument(doc);
-          
-          // Close modal and reset
-          setShowMatterModal(false);
-          setPendingFile(null);
-          setSelectedMatterForUpload('');
-          toast.success('✓ Dosya başarıyla yüklendi!');
-        }
-      } catch (error: any) {
-        console.error('Upload error:', error);
-        toast.error('Dosya yüklenirken hata oluştu: ' + (error.message || 'Bilinmeyen hata'));
+    if (!pendingFile) return;
+
+    try {
+      // Upload to server
+      const uploadedDoc = await api.uploadDocument(
+        pendingFile,
+        selectedMatterForUpload || undefined,
+        undefined
+      );
+
+      if (uploadedDoc) {
+        // Add to local state immediately
+        const doc: DocumentFile = {
+          id: uploadedDoc.id,
+          name: uploadedDoc.name,
+          type: uploadedDoc.mimeType?.includes('pdf') ? 'pdf' :
+            uploadedDoc.mimeType?.includes('word') ? 'docx' :
+              uploadedDoc.mimeType?.includes('text') ? 'txt' : 'img',
+          size: `${(uploadedDoc.fileSize / 1024 / 1024).toFixed(2)} MB`,
+          updatedAt: uploadedDoc.createdAt,
+          matterId: uploadedDoc.matterId || undefined,
+          filePath: uploadedDoc.filePath
+        };
+
+        // Add to context state - this will persist
+        addDocument(doc);
+
+        // Close modal and reset
+        setShowMatterModal(false);
+        setPendingFile(null);
+        setSelectedMatterForUpload('');
+        toast.success('✓ Dosya başarıyla yüklendi!');
       }
+    } catch (error: any) {
+      console.error('Upload error:', error);
+      toast.error('Dosya yüklenirken hata oluştu: ' + (error.message || 'Bilinmeyen hata'));
+    }
   };
 
   const filteredDocs = documents.filter(doc => {
-      const q = searchQuery.trim().toLowerCase();
-      if (q) {
-        const hay = [
-          doc.name,
-          doc.description || '',
-          ...(doc.tags || [])
-        ].join(' ').toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
-      // Filter by matter if selected
-      if (selectedMatter) {
-        // If a matter is selected, only show documents for that matter
-        if (doc.matterId !== selectedMatter) return false;
-      }
-      // If "My Files" is selected (selectedMatter === null), show ALL documents
-      
-      // Filter by type
-      if (filterType === 'all') return true;
-      return doc.type === filterType;
+    const q = searchQuery.trim().toLowerCase();
+    if (q) {
+      const hay = [
+        doc.name,
+        doc.description || '',
+        ...(doc.tags || [])
+      ].join(' ').toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    // Filter by matter if selected
+    if (selectedMatter) {
+      // If a matter is selected, only show documents for that matter
+      if (doc.matterId !== selectedMatter) return false;
+    }
+    // If "My Files" is selected (selectedMatter === null), show ALL documents
+
+    // Filter by type
+    if (filterType === 'all') return true;
+    return doc.type === filterType;
   });
 
   const getMatterName = (matterId?: string) => {
-      if (!matterId) return 'Unassigned';
-      const matter = matters.find(m => m.id === matterId);
-      return matter ? `${matter.caseNumber} - ${matter.name}` : 'Unknown Matter';
+    if (!matterId) return 'Unassigned';
+    const matter = matters.find(m => m.id === matterId);
+    return matter ? `${matter.caseNumber} - ${matter.name}` : 'Unknown Matter';
   };
 
   const handleOpen = async (doc: DocumentFile) => {
-      setViewingDoc(doc);
-      setLoadingContent(true);
-      setDocContent('');
+    setViewingDoc(doc);
+    setLoadingContent(true);
+    setDocContent('');
 
-      try {
-        // If file has filePath, load from server
-        if (doc.filePath) {
-          const fileUrl = `http://localhost:3001${doc.filePath}`;
-          
-          if (doc.type === 'pdf') {
-            // PDF: show in iframe
-            setDocContent(fileUrl);
-          } else if (doc.type === 'txt') {
-            const response = await fetch(fileUrl);
-            const text = await response.text();
-            setDocContent(text);
-          } else if (doc.type === 'docx') {
-            const response = await fetch(fileUrl);
-            const arrayBuffer = await response.arrayBuffer();
-            const result = await mammoth.convertToHtml({ arrayBuffer });
-            setDocContent(result.value);
-          } else {
-            // Images: show directly
-            setDocContent(fileUrl);
-          }
-        } else if (doc.content) {
-          // Fallback to old content storage
-          if (doc.type === 'txt') {
-            const base64 = (doc.content as string).split(',')[1];
-            const text = atob(base64);
-            setDocContent(text);
-          } else if (doc.type === 'docx') {
-            const base64 = (doc.content as string).split(',')[1];
-            const binaryString = atob(base64);
-            const bytes = new Uint8Array(binaryString.length);
-            for (let i = 0; i < binaryString.length; i++) {
-              bytes[i] = binaryString.charCodeAt(i);
-            }
-            const arrayBuffer = bytes.buffer;
-            const result = await mammoth.convertToHtml({ arrayBuffer });
-            setDocContent(result.value);
-          } else if (doc.type === 'pdf') {
-            setDocContent(doc.content as string);
-          } else {
-            setDocContent(doc.content as string);
-          }
+    try {
+      // If file has filePath, load from server
+      if (doc.filePath) {
+        const fileUrl = `${API_BASE_URL}${doc.filePath}`;
+
+        if (doc.type === 'pdf') {
+          // PDF: show in iframe
+          setDocContent(fileUrl);
+        } else if (doc.type === 'txt') {
+          const response = await fetch(fileUrl);
+          const text = await response.text();
+          setDocContent(text);
+        } else if (doc.type === 'docx') {
+          const response = await fetch(fileUrl);
+          const arrayBuffer = await response.arrayBuffer();
+          const result = await mammoth.convertToHtml({ arrayBuffer });
+          setDocContent(result.value);
         } else {
-          toast.warning('Bu dosya için içerik kaydı yok.');
-          setViewingDoc(null);
+          // Images: show directly
+          setDocContent(fileUrl);
         }
-      } catch (error) {
-        console.error('Error opening document:', error);
-        toast.error('Dosya açılırken bir hata oluştu.');
+      } else if (doc.content) {
+        // Fallback to old content storage
+        if (doc.type === 'txt') {
+          const base64 = (doc.content as string).split(',')[1];
+          const text = atob(base64);
+          setDocContent(text);
+        } else if (doc.type === 'docx') {
+          const base64 = (doc.content as string).split(',')[1];
+          const binaryString = atob(base64);
+          const bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+          const arrayBuffer = bytes.buffer;
+          const result = await mammoth.convertToHtml({ arrayBuffer });
+          setDocContent(result.value);
+        } else if (doc.type === 'pdf') {
+          setDocContent(doc.content as string);
+        } else {
+          setDocContent(doc.content as string);
+        }
+      } else {
+        toast.warning('Bu dosya için içerik kaydı yok.');
         setViewingDoc(null);
-      } finally {
-        setLoadingContent(false);
       }
+    } catch (error) {
+      console.error('Error opening document:', error);
+      toast.error('Dosya açılırken bir hata oluştu.');
+      setViewingDoc(null);
+    } finally {
+      setLoadingContent(false);
+    }
   };
 
   // Deep-link from Command Palette
@@ -225,67 +228,67 @@ const Documents: React.FC = () => {
   }, [documents]);
 
   const handleDelete = async (doc: DocumentFile) => {
-      const ok = await confirm({
-        title: 'Dosyayı sil',
-        message: `"${doc.name}" dosyasını silmek istediğinize emin misiniz?`,
-        confirmText: 'Sil',
-        cancelText: 'İptal',
-        variant: 'danger'
-      });
-      if (!ok) return;
-      
-      // Optimistically remove from UI
-      deleteDocument(doc.id);
-      
-      try {
-        await api.deleteDocument(doc.id);
-        toast.success('✓ Dosya silindi');
-      } catch (error: any) {
-        // Re-add document if deletion failed
-        addDocument(doc);
-        toast.error('Dosya silinirken hata oluştu: ' + (error.message || 'Bilinmeyen hata'));
-      }
+    const ok = await confirm({
+      title: 'Dosyayı sil',
+      message: `"${doc.name}" dosyasını silmek istediğinize emin misiniz?`,
+      confirmText: 'Sil',
+      cancelText: 'İptal',
+      variant: 'danger'
+    });
+    if (!ok) return;
+
+    // Optimistically remove from UI
+    deleteDocument(doc.id);
+
+    try {
+      await api.deleteDocument(doc.id);
+      toast.success('✓ Dosya silindi');
+    } catch (error: any) {
+      // Re-add document if deletion failed
+      addDocument(doc);
+      toast.error('Dosya silinirken hata oluştu: ' + (error.message || 'Bilinmeyen hata'));
+    }
   };
 
   const handleDownload = async (doc: DocumentFile) => {
-      try {
-        if (doc.filePath) {
-          // Download from server using fetch to avoid opening new tab
-          const fileUrl = `http://localhost:3001${doc.filePath}`;
-          const token = localStorage.getItem('auth_token');
-          
-          const response = await fetch(fileUrl, {
-            headers: token ? { Authorization: `Bearer ${token}` } : {}
-          });
-          
-          if (!response.ok) {
-            throw new Error('Dosya indirilemedi');
-          }
-          
-          const blob = await response.blob();
-          const url = window.URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = doc.name;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          window.URL.revokeObjectURL(url);
-        } else if (doc.content) {
-          // Fallback to old content storage
-          const link = document.createElement('a');
-          link.href = doc.content as string;
-          link.download = doc.name;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-        } else {
-          toast.warning('Bu dosya için içerik kaydı yok.');
+    try {
+      if (doc.filePath) {
+        // Download from server using fetch to avoid opening new tab
+        const fileUrl = `${API_BASE_URL}${doc.filePath}`;
+        const token = localStorage.getItem('auth_token');
+
+        const response = await fetch(fileUrl, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {}
+        });
+
+        if (!response.ok) {
+          throw new Error('Dosya indirilemedi');
         }
-      } catch (error: any) {
-        console.error('Download error:', error);
-        toast.error('Dosya indirilirken bir hata oluştu: ' + (error.message || 'Bilinmeyen hata'));
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = doc.name;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      } else if (doc.content) {
+        // Fallback to old content storage
+        const link = document.createElement('a');
+        link.href = doc.content as string;
+        link.download = doc.name;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        toast.warning('Bu dosya için içerik kaydı yok.');
       }
+    } catch (error: any) {
+      console.error('Download error:', error);
+      toast.error('Dosya indirilirken bir hata oluştu: ' + (error.message || 'Bilinmeyen hata'));
+    }
   };
 
   const toggleSelected = (id: string) => {
@@ -322,40 +325,40 @@ const Documents: React.FC = () => {
               className="bg-transparent outline-none text-sm text-slate-700 placeholder:text-gray-400 w-56"
             />
           </div>
-          <button 
+          <button
             onClick={() => setShowFilter(!showFilter)}
             className={`flex items-center gap-2 px-4 py-2 bg-white border rounded-lg text-sm font-medium transition-colors ${showFilter ? 'border-primary-500 text-primary-600' : 'border-gray-200 text-gray-700 hover:bg-gray-50'}`}>
-             <Filter className="w-4 h-4" /> {t('filter')}
+            <Filter className="w-4 h-4" /> {t('filter')}
           </button>
-          
+
           {showFilter && (
-              <div className="absolute top-full right-0 mt-2 w-48 bg-white shadow-xl rounded-lg border border-gray-100 z-10 p-2">
-                  <div className="text-xs font-bold text-gray-400 px-2 py-1 uppercase">Type</div>
-                  <button onClick={() => { setFilterType('all'); setShowFilter(false); }} className="w-full text-left px-2 py-1.5 text-sm hover:bg-gray-50 rounded">All Files</button>
-                  <button onClick={() => { setFilterType('pdf'); setShowFilter(false); }} className="w-full text-left px-2 py-1.5 text-sm hover:bg-gray-50 rounded">PDFs</button>
-                  <button onClick={() => { setFilterType('docx'); setShowFilter(false); }} className="w-full text-left px-2 py-1.5 text-sm hover:bg-gray-50 rounded">Documents</button>
-              </div>
+            <div className="absolute top-full right-0 mt-2 w-48 bg-white shadow-xl rounded-lg border border-gray-100 z-10 p-2">
+              <div className="text-xs font-bold text-gray-400 px-2 py-1 uppercase">Type</div>
+              <button onClick={() => { setFilterType('all'); setShowFilter(false); }} className="w-full text-left px-2 py-1.5 text-sm hover:bg-gray-50 rounded">All Files</button>
+              <button onClick={() => { setFilterType('pdf'); setShowFilter(false); }} className="w-full text-left px-2 py-1.5 text-sm hover:bg-gray-50 rounded">PDFs</button>
+              <button onClick={() => { setFilterType('docx'); setShowFilter(false); }} className="w-full text-left px-2 py-1.5 text-sm hover:bg-gray-50 rounded">Documents</button>
+            </div>
           )}
 
           <input type="file" className="hidden" ref={fileInputRef} onChange={handleFileChange} />
           {isGoogleDocsConnected && (
-            <button 
+            <button
               onClick={handleGoogleDocsSync}
               className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors shadow-sm">
               <FileText className="w-4 h-4" /> Sync Google Docs
             </button>
           )}
           {!isGoogleDocsConnected && (
-            <button 
+            <button
               onClick={handleGoogleDocsConnect}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm">
               <FileText className="w-4 h-4" /> Connect Google Docs
             </button>
           )}
-          <button 
-             onClick={() => fileInputRef.current?.click()}
-             className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 transition-colors shadow-sm">
-             <Plus className="w-4 h-4" /> {t('upload')}
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 transition-colors shadow-sm">
+            <Plus className="w-4 h-4" /> {t('upload')}
           </button>
         </div>
       </div>
@@ -364,32 +367,30 @@ const Documents: React.FC = () => {
         {/* Sidebar Tree */}
         <div className="w-64 border-r border-gray-100 bg-gray-50 p-4 flex flex-col gap-1 overflow-y-auto">
           <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-2">Locations</div>
-          <button 
+          <button
             onClick={() => setSelectedMatter(null)}
-            className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors text-left ${
-              selectedMatter === null 
-                ? 'bg-white border border-gray-200 text-primary-600 shadow-sm' 
+            className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors text-left ${selectedMatter === null
+                ? 'bg-white border border-gray-200 text-primary-600 shadow-sm'
                 : 'hover:bg-gray-100 text-gray-600'
-            }`}
+              }`}
           >
             <Folder className="w-4 h-4" /> {t('my_files')}
           </button>
-          
+
           <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mt-6 mb-2 px-2">{t('nav_matters')}</div>
           {matters.length === 0 && <div className="px-2 text-xs text-gray-400 italic">No matters created.</div>}
           {matters.map(m => (
-             <button 
-               key={m.id} 
-               onClick={() => setSelectedMatter(m.id)}
-               className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors text-left truncate ${
-                 selectedMatter === m.id
-                   ? 'bg-white border border-gray-200 text-primary-600 shadow-sm'
-                   : 'hover:bg-gray-100 text-gray-600'
-               }`}
-             >
-                <Folder className="w-4 h-4 text-gray-400 shrink-0" /> 
-                <span className="truncate">{m.caseNumber}</span>
-             </button>
+            <button
+              key={m.id}
+              onClick={() => setSelectedMatter(m.id)}
+              className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors text-left truncate ${selectedMatter === m.id
+                  ? 'bg-white border border-gray-200 text-primary-600 shadow-sm'
+                  : 'hover:bg-gray-100 text-gray-600'
+                }`}
+            >
+              <Folder className="w-4 h-4 text-gray-400 shrink-0" />
+              <span className="truncate">{m.caseNumber}</span>
+            </button>
           ))}
         </div>
 
@@ -427,66 +428,65 @@ const Documents: React.FC = () => {
             </div>
           )}
           {filteredDocs.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-64 text-gray-400">
-                  <Folder className="w-16 h-16 opacity-20 mb-4" />
-                  <p>No documents found.</p>
-                  <div className="flex gap-3 mt-4">
-                    <button onClick={() => fileInputRef.current?.click()} className="px-4 py-2 bg-primary-600 text-white text-sm font-bold rounded-lg hover:bg-primary-700">
-                      Upload a file
-                    </button>
-                    {isGoogleDocsConnected ? (
-                      <button onClick={handleGoogleDocsSync} className="px-4 py-2 bg-green-600 text-white text-sm font-bold rounded-lg hover:bg-green-700">
-                        Sync Google Docs
-                      </button>
-                    ) : (
-                      <button onClick={handleGoogleDocsConnect} className="px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded-lg hover:bg-blue-700">
-                        Connect Google Docs
-                      </button>
-                    )}
-                  </div>
+            <div className="flex flex-col items-center justify-center h-64 text-gray-400">
+              <Folder className="w-16 h-16 opacity-20 mb-4" />
+              <p>No documents found.</p>
+              <div className="flex gap-3 mt-4">
+                <button onClick={() => fileInputRef.current?.click()} className="px-4 py-2 bg-primary-600 text-white text-sm font-bold rounded-lg hover:bg-primary-700">
+                  Upload a file
+                </button>
+                {isGoogleDocsConnected ? (
+                  <button onClick={handleGoogleDocsSync} className="px-4 py-2 bg-green-600 text-white text-sm font-bold rounded-lg hover:bg-green-700">
+                    Sync Google Docs
+                  </button>
+                ) : (
+                  <button onClick={handleGoogleDocsConnect} className="px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded-lg hover:bg-blue-700">
+                    Connect Google Docs
+                  </button>
+                )}
               </div>
+            </div>
           ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-             {filteredDocs.map(doc => (
-               <div key={doc.id} className="group p-4 bg-white border border-gray-200 rounded-xl hover:shadow-card hover:border-primary-200 transition-all">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {filteredDocs.map(doc => (
+                <div key={doc.id} className="group p-4 bg-white border border-gray-200 rounded-xl hover:shadow-card hover:border-primary-200 transition-all">
                   <div className="flex justify-between items-start mb-3">
-                     <label className="flex items-center gap-2 text-xs text-gray-500">
-                       <input
-                         type="checkbox"
-                         checked={selectedIds.includes(doc.id)}
-                         onChange={() => toggleSelected(doc.id)}
-                         className="rounded border-gray-300"
-                       />
-                       Seç
-                     </label>
-                     <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                       doc.type === 'folder' ? 'bg-blue-50 text-blue-500' :
-                       doc.type === 'pdf' ? 'bg-red-50 text-red-500' : 'bg-blue-50 text-blue-600'
-                     }`}>
-                        {doc.type === 'folder' ? <Folder className="w-6 h-6" /> : <FileText className="w-6 h-6" />}
-                     </div>
-                     <div className="flex gap-2">
-                        <button onClick={() => handleOpen(doc)} className="text-xs text-primary-600 hover:underline">Aç</button>
-                        <button onClick={() => handleDownload(doc)} className="text-xs text-gray-500 hover:underline">İndir</button>
-                        <button 
-                          onClick={() => {
-                            setEditingDoc(doc);
-                            setEditMatterId(doc.matterId || '');
-                            setEditTags((doc.tags || []).join(', '));
-                          }}
-                          className="text-xs text-gray-500 hover:underline"
-                          title="Assign to matter"
-                        >
-                          📁
-                        </button>
-                        <button 
-                          onClick={() => handleDelete(doc)} 
-                          className="text-xs text-red-600 hover:underline"
-                          title="Delete"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
-                     </div>
+                    <label className="flex items-center gap-2 text-xs text-gray-500">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.includes(doc.id)}
+                        onChange={() => toggleSelected(doc.id)}
+                        className="rounded border-gray-300"
+                      />
+                      Seç
+                    </label>
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${doc.type === 'folder' ? 'bg-blue-50 text-blue-500' :
+                        doc.type === 'pdf' ? 'bg-red-50 text-red-500' : 'bg-blue-50 text-blue-600'
+                      }`}>
+                      {doc.type === 'folder' ? <Folder className="w-6 h-6" /> : <FileText className="w-6 h-6" />}
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={() => handleOpen(doc)} className="text-xs text-primary-600 hover:underline">Aç</button>
+                      <button onClick={() => handleDownload(doc)} className="text-xs text-gray-500 hover:underline">İndir</button>
+                      <button
+                        onClick={() => {
+                          setEditingDoc(doc);
+                          setEditMatterId(doc.matterId || '');
+                          setEditTags((doc.tags || []).join(', '));
+                        }}
+                        className="text-xs text-gray-500 hover:underline"
+                        title="Assign to matter"
+                      >
+                        📁
+                      </button>
+                      <button
+                        onClick={() => handleDelete(doc)}
+                        className="text-xs text-red-600 hover:underline"
+                        title="Delete"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
                   </div>
                   <h3 className="font-medium text-slate-800 truncate text-sm" title={doc.name}>{doc.name}</h3>
                   <div className="mt-2 space-y-1">
@@ -505,9 +505,9 @@ const Documents: React.FC = () => {
                       <span>{formatDate(doc.updatedAt)}</span>
                     </div>
                   </div>
-               </div>
-             ))}
-          </div>
+                </div>
+              ))}
+            </div>
           )}
         </div>
       </div>
@@ -522,7 +522,7 @@ const Documents: React.FC = () => {
                 <h3 className="font-bold text-lg text-slate-800">{viewingDoc.name}</h3>
                 <p className="text-xs text-gray-500 mt-1">{viewingDoc.size} • {formatDate(viewingDoc.updatedAt)}</p>
               </div>
-              <button 
+              <button
                 onClick={() => { setViewingDoc(null); setDocContent(''); }}
                 className="text-gray-400 hover:text-gray-600"
               >
@@ -537,8 +537,8 @@ const Documents: React.FC = () => {
                   <div className="text-gray-400">Yükleniyor...</div>
                 </div>
               ) : viewingDoc.type === 'pdf' ? (
-                <iframe 
-                  src={docContent} 
+                <iframe
+                  src={docContent}
                   className="w-full h-full border-0"
                   title={viewingDoc.name}
                 />
@@ -547,13 +547,13 @@ const Documents: React.FC = () => {
                   {docContent}
                 </pre>
               ) : viewingDoc.type === 'docx' ? (
-                <div 
+                <div
                   className="prose max-w-none text-slate-800"
                   dangerouslySetInnerHTML={{ __html: docContent }}
                 />
               ) : (
-                <img 
-                  src={docContent} 
+                <img
+                  src={docContent}
                   alt={viewingDoc.name}
                   className="max-w-full h-auto mx-auto"
                 />
@@ -581,7 +581,7 @@ const Documents: React.FC = () => {
               <h3 className="font-bold text-lg text-slate-800">Assign Document to Matter</h3>
               <p className="text-sm text-gray-500 mt-1">{editingDoc.name}</p>
             </div>
-            
+
             <div className="px-6 py-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">Matter</label>
               <select
@@ -648,7 +648,7 @@ const Documents: React.FC = () => {
               <h3 className="font-bold text-lg text-slate-800">Select Matter</h3>
               <p className="text-sm text-gray-500 mt-1">Choose a matter to associate with this document</p>
             </div>
-            
+
             <div className="px-6 py-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">Matter</label>
               <select

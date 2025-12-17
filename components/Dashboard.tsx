@@ -23,9 +23,23 @@ const StatCard = ({ title, value, subtext, icon: Icon, colorClass }: any) => (
 );
 
 const Dashboard: React.FC = () => {
-  const { t, formatCurrency, formatDate } = useTranslation();
+  const { t, formatCurrency, formatDate, language } = useTranslation();
   const { matters, timeEntries, tasks, events, invoices, expenses, documents } = useData();
   const { user } = useAuth();
+
+  // Saat bazlı selamlama
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (language === 'tr') {
+      if (hour >= 5 && hour < 12) return 'Günaydın';
+      if (hour >= 12 && hour < 18) return 'İyi günler';
+      return 'İyi akşamlar';
+    } else {
+      if (hour >= 5 && hour < 12) return 'Good morning';
+      if (hour >= 12 && hour < 18) return 'Good afternoon';
+      return 'Good evening';
+    }
+  };
 
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
@@ -119,7 +133,7 @@ const Dashboard: React.FC = () => {
             {(user?.role || 'User')} Dashboard
           </h1>
           <p className="text-gray-500 mt-1">
-            {t('dashboard_welcome')}, {user?.name || 'User'}. {t('dashboard_overview')} {formatDate(new Date().toString())}.
+            {getGreeting()}, {user?.name || 'User'}. {t('dashboard_overview')} {formatDate(new Date().toString())}.
           </p>
         </div>
         <div className="text-right hidden md:block">
