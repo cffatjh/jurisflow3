@@ -349,49 +349,42 @@ ensureTestAccounts().catch((err) => console.error('❌ ensureTestAccounts failed
 
 // Ensure a test attorney account exists (Partner role - NOT Admin)
 const ensureTestAttorney = async () => {
-  try {
-    const attorneyEmail = 'avukat@gmail.com';
-    const attorneyPassword = 'avukat';
+  const attorneys = [
+    { email: 'avukat@gmail.com', password: 'avukat123', name: 'Test Avukat' },
+    { email: 'avukat@jf.com', password: 'avukat123', name: 'JF Avukat' }
+  ];
 
-    let attorney = await prisma.user.findUnique({ where: { email: attorneyEmail } });
+  for (const attorney of attorneys) {
+    try {
+      const existing = await prisma.user.findUnique({ where: { email: attorney.email } });
+      const passwordHash = await bcrypt.hash(attorney.password, 10);
 
-    if (!attorney) {
-      const passwordHash = await bcrypt.hash(attorneyPassword, 10);
-      attorney = await prisma.user.create({
-        data: {
-          email: attorneyEmail,
-          name: 'Test Avukat',
-          role: 'Partner', // Normal avukat - Admin değil
-          passwordHash,
-          phone: '555-0200',
-          address: '456 Attorney Street',
-          city: 'Istanbul',
-          state: 'Istanbul',
-          zipCode: '34000',
-          country: 'Turkey'
-        }
-      });
-      // Test attorney created silently
-      logger.info('Test attorney created', { email: attorneyEmail, role: 'Partner' });
-    } else {
-      // Update password if exists but password changed
-      const passwordHash = await bcrypt.hash(attorneyPassword, 10);
-      await prisma.user.update({
-        where: { email: attorneyEmail },
-        data: {
-          passwordHash,
-          role: 'Partner' // Ensure it's not Admin
-        }
-      });
-      // Test attorney updated silently
-      logger.info('Test attorney updated', { email: attorneyEmail, role: 'Partner' });
+      if (existing) {
+        await prisma.user.update({
+          where: { email: attorney.email },
+          data: { passwordHash, role: 'Partner', name: attorney.name }
+        });
+        console.log(`✅ Attorney updated: ${attorney.email}`);
+      } else {
+        await prisma.user.create({
+          data: {
+            email: attorney.email,
+            name: attorney.name,
+            role: 'Partner',
+            passwordHash,
+            phone: '555-0200',
+            city: 'Istanbul',
+            country: 'Turkey'
+          }
+        });
+        console.log(`✅ Attorney created: ${attorney.email}`);
+      }
+    } catch (err) {
+      console.error(`❌ Failed to create/update attorney ${attorney.email}:`, err);
     }
-  } catch (err) {
-    // Ignore errors (might be duplicate email constraint)
-    logger.warn('Could not setup test attorney (might already exist)');
   }
 };
-ensureTestAttorney().catch((err) => console.error('Failed to ensure test attorney', err));
+ensureTestAttorney().catch((err) => console.error('❌ ensureTestAttorney failed:', err));
 
 // ===================== HEALTH CHECK =====================
 // Required for Railway/production health monitoring
