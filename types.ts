@@ -21,6 +21,45 @@ export enum FeeStructure {
   Contingency = 'Contingency'
 }
 
+// Çalışan Rolleri
+export enum EmployeeRole {
+  SECRETARY = 'SECRETARY',
+  PARALEGAL = 'PARALEGAL',
+  INTERN_LAWYER = 'INTERN_LAWYER',
+  ACCOUNTANT = 'ACCOUNTANT'
+}
+
+// Çalışan Durumu
+export enum EmployeeStatus {
+  ACTIVE = 'ACTIVE',
+  ON_LEAVE = 'ON_LEAVE',
+  TERMINATED = 'TERMINATED'
+}
+
+// Çalışan
+export interface Employee {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  mobile?: string;
+  role: EmployeeRole;
+  status: EmployeeStatus;
+  hireDate: string;
+  terminationDate?: string;
+  hourlyRate?: number;
+  salary?: number;
+  userId?: string;
+  notes?: string;
+  address?: string;
+  emergencyContact?: string;
+  emergencyPhone?: string;
+  supervisorId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Client {
   id: string;
   name: string;
@@ -86,13 +125,106 @@ export interface Expense {
   type: 'expense';
 }
 
+// Fatura Durumu
+export enum InvoiceStatus {
+  DRAFT = 'DRAFT',
+  PENDING_APPROVAL = 'PENDING_APPROVAL',
+  APPROVED = 'APPROVED',
+  SENT = 'SENT',
+  PARTIALLY_PAID = 'PARTIALLY_PAID',
+  PAID = 'PAID',
+  OVERDUE = 'OVERDUE',
+  WRITTEN_OFF = 'WRITTEN_OFF',
+  CANCELLED = 'CANCELLED'
+}
+
+// Fatura Kalemi Tipi
+export enum LineItemType {
+  TIME = 'TIME',
+  EXPENSE = 'EXPENSE',
+  FIXED_FEE = 'FIXED_FEE',
+  DISCOUNT = 'DISCOUNT',
+  TAX = 'TAX',
+  WRITE_OFF = 'WRITE_OFF',
+  RETAINER = 'RETAINER',
+  COURT_FEE = 'COURT_FEE',
+  OTHER = 'OTHER'
+}
+
+// Fatura Kalemi
+export interface InvoiceLineItem {
+  id: string;
+  invoiceId: string;
+  type: LineItemType;
+  description: string;
+  quantity: number;
+  rate: number;
+  amount: number;
+  utbmsActivityCode?: string;
+  utbmsExpenseCode?: string;
+  utbmsTaskCode?: string;
+  timeEntryId?: string;
+  expenseId?: string;
+  taxable: boolean;
+  billable: boolean;
+  writtenOff: boolean;
+  date: string;
+}
+
+// Fatura Ödemesi
+export interface InvoicePayment {
+  id: string;
+  invoiceId: string;
+  amount: number;
+  method: 'cash' | 'check' | 'credit_card' | 'bank_transfer' | 'trust';
+  reference?: string;
+  stripePaymentId?: string;
+  isRefund: boolean;
+  refundReason?: string;
+  notes?: string;
+  paidAt: string;
+}
+
 export interface Invoice {
   id: string;
   number: string;
   client: Client;
+  clientId: string;
+  matterId?: string;
+
+  // Tutarlar
+  subtotal: number;
+  taxRate?: number;
+  taxAmount: number;
+  discount: number;
   amount: number;
+  amountPaid: number;
+  balance: number;
+
+  // Tarihler
+  issueDate: string;
   dueDate: string;
-  status: 'Paid' | 'Overdue' | 'Sent' | 'Draft';
+  paidDate?: string;
+
+  // Workflow
+  status: InvoiceStatus;
+  approvedBy?: string;
+  approvedAt?: string;
+  sentAt?: string;
+
+  // LEDES
+  ledesCode?: string;
+
+  // Alt tablolar
+  lineItems?: InvoiceLineItem[];
+  payments?: InvoicePayment[];
+
+  // Notlar
+  notes?: string;
+  terms?: string;
+
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export type TaskStatus = 'To Do' | 'In Progress' | 'Review' | 'Done' | 'Archived';
@@ -318,5 +450,70 @@ export interface Payment {
   brand?: string;
   receiptUrl?: string;
   paidAt?: string;
+  createdAt: string;
+}
+
+// Doküman Versiyonu
+export interface DocumentVersion {
+  id: string;
+  documentId: string;
+  versionNumber: number;
+  fileName: string;
+  filePath: string;
+  fileSize: number;
+  mimeType: string;
+  changeNote?: string;
+  changedBy?: string;
+  checksum?: string;
+  diffSummary?: string;
+  isLatest: boolean;
+  createdAt: string;
+}
+
+// Son Tarih Kural Tipi
+export enum DeadlineRuleType {
+  COURT_FILING = 'COURT_FILING',
+  RESPONSE_DUE = 'RESPONSE_DUE',
+  DISCOVERY = 'DISCOVERY',
+  MOTION = 'MOTION',
+  APPEAL = 'APPEAL',
+  STATUTE_OF_LIMIT = 'STATUTE_OF_LIMIT',
+  CONTRACT = 'CONTRACT',
+  CUSTOM = 'CUSTOM'
+}
+
+// Son Tarih Kuralı
+export interface DeadlineRule {
+  id: string;
+  name: string;
+  description?: string;
+  type: DeadlineRuleType;
+  baseDays: number;
+  useBusinessDays: boolean;
+  excludeHolidays: boolean;
+  triggerEvent?: string;
+  jurisdiction?: string;
+  practiceArea?: string;
+  reminderDays?: string; // JSON: [30, 7, 1]
+  isActive: boolean;
+  priority: number;
+  createdBy?: string;
+  createdAt: string;
+}
+
+// Hesaplanmış Son Tarih
+export interface CalculatedDeadline {
+  id: string;
+  ruleId: string;
+  rule?: DeadlineRule;
+  matterId: string;
+  triggerDate: string;
+  dueDate: string;
+  reminder30Sent: boolean;
+  reminder7Sent: boolean;
+  reminder1Sent: boolean;
+  status: 'pending' | 'completed' | 'overdue';
+  completedAt?: string;
+  notes?: string;
   createdAt: string;
 }

@@ -7,7 +7,13 @@ const WorkflowBuilder: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
     const [editingWorkflow, setEditingWorkflow] = useState<any | null>(null);
-    const [formData, setFormData] = useState({
+    const [formData, setFormData] = useState<{
+        name: string;
+        description: string;
+        trigger: string;
+        isActive: boolean;
+        actions: Array<{ type: string; config: Record<string, string> }>;
+    }>({
         name: '',
         description: '',
         trigger: 'matter_created',

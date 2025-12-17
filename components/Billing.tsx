@@ -2,19 +2,30 @@ import React, { useState, useMemo } from 'react';
 import { CreditCard, Plus, X, Search, Filter, Download, Edit, Trash2, CheckCircle, AlertCircle, Clock, DollarSign, FileText, Send, AlertTriangle } from './Icons';
 import { useTranslation } from '../contexts/LanguageContext';
 import { useData } from '../contexts/DataContext';
-import { Invoice } from '../types';
+import { Invoice, InvoiceStatus } from '../types';
 import { toast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
 
+// Helper functions for status checks (handles both legacy strings and new enums)
+const isPaid = (status: any) => status === 'Paid' || status === 'PAID';
+const isDraft = (status: any) => status === 'Draft' || status === 'DRAFT';
+const isApproved = (status: any) => status === 'APPROVED';
+
 // Extended Invoice type with additional fields
-interface ExtendedInvoice extends Invoice {
+interface ExtendedInvoice {
+    id: string;
+    number?: string;
+    client: any;
+    amount: number;
+    dueDate: string;
+    status: any; // Can be string or InvoiceStatus enum
     lineItems?: {
         id: string;
         description: string;
         quantity: number;
         rate: number;
         amount: number;
-        type: 'time' | 'expense' | 'fixed';
+        type: 'time' | 'expense' | 'fixed' | string;
     }[];
     payments?: {
         id: string;
@@ -65,11 +76,11 @@ const Billing: React.FC = () => {
         const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
         const totalOutstanding = invoices.reduce((acc, inv) =>
-            inv.status !== 'Paid' ? acc + inv.amount : acc, 0);
+            !isPaid(inv.status) ? acc + inv.amount : acc, 0);
         const totalPaid = invoices.reduce((acc, inv) =>
-            inv.status === 'Paid' ? acc + inv.amount : acc, 0);
+            isPaid(inv.status) ? acc + inv.amount : acc, 0);
         const overdueInvoices = invoices.filter(inv =>
-            inv.status !== 'Paid' && new Date(inv.dueDate) < now);
+            !isPaid(inv.status) && new Date(inv.dueDate) < now);
         const totalOverdue = overdueInvoices.reduce((acc, inv) => acc + inv.amount, 0);
 
         // WIP calculation
@@ -82,7 +93,7 @@ const Billing: React.FC = () => {
         // This month's revenue
         const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
         const thisMonthPaid = invoices
-            .filter(inv => inv.status === 'Paid')
+            .filter(inv => isPaid(inv.status))
             .reduce((acc, inv) => acc + inv.amount, 0);
 
         return {
@@ -93,7 +104,7 @@ const Billing: React.FC = () => {
             totalWIP,
             thisMonthPaid,
             invoiceCount: invoices.length,
-            paidCount: invoices.filter(inv => inv.status === 'Paid').length,
+            paidCount: invoices.filter(inv => isPaid(inv.status)).length,
         };
     }, [invoices, timeEntries, expenses]);
 
@@ -283,18 +294,27 @@ const Billing: React.FC = () => {
     const getStatusBadge = (status: string) => {
         const styles: Record<string, string> = {
             Draft: 'bg-gray-100 text-gray-700',
+            DRAFT: 'bg-gray-100 text-gray-700',
+            PENDING_APPROVAL: 'bg-yellow-100 text-yellow-700',
+            APPROVED: 'bg-indigo-100 text-indigo-700',
             Sent: 'bg-blue-100 text-blue-700',
+            SENT: 'bg-blue-100 text-blue-700',
             Paid: 'bg-green-100 text-green-700',
+            PAID: 'bg-green-100 text-green-700',
             Partial: 'bg-amber-100 text-amber-700',
+            PARTIALLY_PAID: 'bg-amber-100 text-amber-700',
             Overdue: 'bg-red-100 text-red-700',
+            OVERDUE: 'bg-red-100 text-red-700',
             Cancelled: 'bg-gray-100 text-gray-500',
+            CANCELLED: 'bg-gray-100 text-gray-500',
+            WRITTEN_OFF: 'bg-gray-100 text-gray-500',
         };
         return styles[status] || styles.Draft;
     };
 
     // Check if invoice is overdue
-    const isOverdue = (invoice: Invoice) => {
-        return invoice.status !== 'Paid' && new Date(invoice.dueDate) < new Date();
+    const isOverdue = (invoice: any) => {
+        return !isPaid(invoice.status) && new Date(invoice.dueDate) < new Date();
     };
 
     return (
@@ -400,9 +420,14 @@ const Billing: React.FC = () => {
                     >
                         <option value="all">All Status</option>
                         <option value="Draft">Draft</option>
+                        <option value="DRAFT">Draft (New)</option>
+                        <option value="PENDING_APPROVAL">Pending Approval</option>
+                        <option value="APPROVED">Approved</option>
                         <option value="Sent">Sent</option>
+                        <option value="SENT">Sent (New)</option>
+                        <option value="PARTIALLY_PAID">Partially Paid</option>
                         <option value="Paid">Paid</option>
-                        <option value="Partial">Partial</option>
+                        <option value="PAID">Paid (New)</option>
                         <option value="Overdue">Overdue</option>
                     </select>
 
@@ -467,9 +492,9 @@ const Billing: React.FC = () => {
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
                                     {filteredInvoices.map(inv => {
-                                        const extInv = inv as ExtendedInvoice;
+                                        const extInv = inv as unknown as ExtendedInvoice;
                                         const totalPaid = extInv.payments?.reduce((sum, p) => sum + p.amount, 0) || 0;
-                                        const displayStatus = isOverdue(inv) && inv.status !== 'Paid' ? 'Overdue' : inv.status;
+                                        const displayStatus = isOverdue(inv) && !isPaid(inv.status) ? 'Overdue' : inv.status;
 
                                         return (
                                             <tr
@@ -835,7 +860,27 @@ const Billing: React.FC = () => {
                                 Delete Invoice
                             </button>
                             <div className="flex gap-2">
-                                {selectedInvoice.status === 'Draft' && (
+                                {(selectedInvoice.status === 'Draft' || selectedInvoice.status === 'DRAFT') && (
+                                    <>
+                                        <button
+                                            onClick={async () => {
+                                                updateInvoice(selectedInvoice.id, { status: 'APPROVED' });
+                                                toast.success('Fatura onaylandı!');
+                                                setSelectedInvoice(prev => prev ? { ...prev, status: 'APPROVED' as any } : null);
+                                            }}
+                                            className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-bold hover:bg-indigo-700"
+                                        >
+                                            ✓ Approve
+                                        </button>
+                                        <button
+                                            onClick={() => handleSendInvoice(selectedInvoice)}
+                                            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700"
+                                        >
+                                            Send Invoice
+                                        </button>
+                                    </>
+                                )}
+                                {(selectedInvoice.status === 'APPROVED') && (
                                     <button
                                         onClick={() => handleSendInvoice(selectedInvoice)}
                                         className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700"

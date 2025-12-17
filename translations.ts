@@ -215,7 +215,31 @@ export const translations = {
     drafting: "Drafting...",
     copy: "Copy",
     save_to_matter: "Save to Matter",
-    draft_placeholder: "Your AI-generated legal draft will appear here ready for review and editing."
+    draft_placeholder: "Your AI-generated legal draft will appear here ready for review and editing.",
+
+    // Employees (Staff)
+    nav_employees: "Staff",
+    employees_title: "Staff Management",
+    employees_subtitle: "Manage secretaries, paralegals, and other staff members.",
+    add_employee: "+ Add Staff",
+    role_secretary: "Secretary",
+    role_paralegal: "Paralegal",
+    role_intern_lawyer: "Intern Lawyer",
+    role_accountant: "Accountant",
+    status_active: "Active",
+    status_on_leave: "On Leave",
+    status_terminated: "Terminated",
+    first_name: "First Name",
+    last_name: "Last Name",
+    hire_date: "Hire Date",
+    hourly_rate_label: "Hourly Rate",
+    salary: "Salary",
+    emergency_contact: "Emergency Contact",
+    assigned_tasks: "Assigned Tasks",
+    reset_password: "Reset Password",
+    supervisor: "Supervisor",
+    no_employees: "No staff members yet",
+    add_first_employee: "Add your first staff member"
   },
   tr: {
     // Auth
@@ -431,7 +455,31 @@ export const translations = {
     drafting: "Yazılıyor...",
     copy: "Kopyala",
     save_to_matter: "Dosyaya Kaydet",
-    draft_placeholder: "Yapay zeka tarafından oluşturulan hukuki taslak incelenmek ve düzenlenmek üzere burada görünecektir."
+    draft_placeholder: "Yapay zeka tarafından oluşturulan hukuki taslak incelenmek ve düzenlenmek üzere burada görünecektir.",
+
+    // Çalışanlar
+    nav_employees: "Çalışanlar",
+    employees_title: "Çalışan Yönetimi",
+    employees_subtitle: "Sekreter, stajyer ve diğer personeli yönetin.",
+    add_employee: "+ Çalışan Ekle",
+    role_secretary: "Sekreter",
+    role_paralegal: "Paralegal",
+    role_intern_lawyer: "Stajyer Avukat",
+    role_accountant: "Muhasebeci",
+    status_active: "Aktif",
+    status_on_leave: "İzinli",
+    status_terminated: "İşten Ayrıldı",
+    first_name: "Ad",
+    last_name: "Soyad",
+    hire_date: "İşe Başlama",
+    hourly_rate_label: "Saatlik Ücret",
+    salary: "Maaş",
+    emergency_contact: "Acil Durum Kişisi",
+    assigned_tasks: "Atanan Görevler",
+    reset_password: "Şifre Sıfırla",
+    supervisor: "Yönetici",
+    no_employees: "Henüz çalışan yok",
+    add_first_employee: "İlk çalışanınızı ekleyin"
   },
   de: {
     nav_time: "Zeit & Spesen",

@@ -21,6 +21,7 @@ import CommandPalette from './components/CommandPalette';
 import Notifications from './components/Notifications';
 import Settings from './components/Settings';
 import Reports from './components/Reports';
+import Employees from './components/Employees';
 import GlobalTimer from './components/GlobalTimer';
 import ClientPortal from './components/client/ClientPortal';
 import { ToastProvider } from './components/Toast';
@@ -32,7 +33,7 @@ import { DataProvider, useData } from './contexts/DataContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { Language } from './translations';
 
-type ActiveTab = 'dashboard' | 'matters' | 'documents' | 'communications' | 'crm' | 'ai' | 'billing' | 'calendar' | 'time' | 'tasks' | 'settings' | 'videocall' | 'reports';
+type ActiveTab = 'dashboard' | 'matters' | 'documents' | 'communications' | 'crm' | 'ai' | 'billing' | 'calendar' | 'time' | 'tasks' | 'settings' | 'videocall' | 'reports' | 'employees';
 
 const FLAGS: Record<Language, string> = {
   en: '🇺🇸',
@@ -120,6 +121,7 @@ const MainLayout = () => {
           <NavButton tab="calendar" icon={CalendarIcon} label={t('nav_calendar')} />
           <NavButton tab="billing" icon={CreditCard} label={t('nav_billing')} />
           <NavButton tab="time" icon={Timer} label={t('nav_time')} />
+          <NavButton tab="employees" icon={Users} label={t('nav_employees') || 'Çalışanlar'} />
           <NavButton tab="reports" icon={BarChart3} label="Reports" />
           <NavButton tab="ai" icon={BrainCircuit} label={t('nav_ai')} />
         </nav>
@@ -211,6 +213,7 @@ const ComponentSwitcher = ({ activeTab }: { activeTab: ActiveTab }) => {
     case 'ai': return <AIDrafter matters={matters} />;
     case 'time': return <TimeTracker />;
     case 'reports': return <Reports />;
+    case 'employees': return <Employees />;
     case 'settings': return <Settings />;
     default: return <Dashboard />;
   }

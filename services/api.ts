@@ -1,4 +1,4 @@
-import { Matter, Task, TimeEntry, Lead, CalendarEvent, Invoice, TaskStatus, Expense } from "../types";
+import { Matter, Task, TimeEntry, Lead, CalendarEvent, Invoice, TaskStatus, Expense, Employee } from "../types";
 
 // Use relative path when in browser (proxy will handle it), fallback to full URL for SSR
 const API_URL = typeof window !== 'undefined' ? '/api' : 'http://localhost:3001/api';
@@ -81,11 +81,26 @@ export const api = {
 
     // Invoices
     getInvoices: () => fetchJson('/invoices'),
+    getInvoice: (id: string) => fetchJson(`/invoices/${id}`),
     createInvoice: (data: any) => {
-        // Transform Client object to ClientID for backend if needed
-        const payload = { ...data, clientId: data.client.id };
+        const payload = { ...data, clientId: data.client?.id || data.clientId };
         return fetchJson('/invoices', { method: 'POST', body: JSON.stringify(payload) });
     },
+    updateInvoice: (id: string, data: any) => fetchJson(`/invoices/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    deleteInvoice: (id: string) => fetchJson(`/invoices/${id}`, { method: 'DELETE' }),
+
+    // Invoice Workflow
+    approveInvoice: (id: string) => fetchJson(`/invoices/${id}/approve`, { method: 'POST' }),
+    sendInvoice: (id: string) => fetchJson(`/invoices/${id}/send`, { method: 'POST' }),
+
+    // Invoice Line Items
+    addInvoiceLineItem: (invoiceId: string, data: any) => fetchJson(`/invoices/${invoiceId}/line-items`, { method: 'POST', body: JSON.stringify(data) }),
+    updateInvoiceLineItem: (invoiceId: string, itemId: string, data: any) => fetchJson(`/invoices/${invoiceId}/line-items/${itemId}`, { method: 'PUT', body: JSON.stringify(data) }),
+    deleteInvoiceLineItem: (invoiceId: string, itemId: string) => fetchJson(`/invoices/${invoiceId}/line-items/${itemId}`, { method: 'DELETE' }),
+
+    // Invoice Payments
+    recordPayment: (invoiceId: string, data: any) => fetchJson(`/invoices/${invoiceId}/payments`, { method: 'POST', body: JSON.stringify(data) }),
+    refundPayment: (invoiceId: string, paymentId: string, data: any) => fetchJson(`/invoices/${invoiceId}/payments/${paymentId}/refund`, { method: 'POST', body: JSON.stringify(data) }),
 
     // Notifications
     getNotifications: () => fetchJson('/notifications'),
@@ -218,4 +233,13 @@ export const api = {
     createSignatureRequest: (documentId: string, data: { clientId: string; expiresAt?: string }) =>
         fetchJson(`/documents/${documentId}/signature`, { method: 'POST', body: JSON.stringify(data) }),
     getDocumentSignatures: (documentId: string) => fetchJson(`/documents/${documentId}/signatures`),
+
+    // Employees (Çalışanlar)
+    getEmployees: () => fetchJson('/employees'),
+    getEmployee: (id: string) => fetchJson(`/employees/${id}`),
+    createEmployee: (data: Partial<Employee>) => fetchJson('/employees', { method: 'POST', body: JSON.stringify(data) }),
+    updateEmployee: (id: string, data: Partial<Employee>) => fetchJson(`/employees/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    deleteEmployee: (id: string) => fetchJson(`/employees/${id}`, { method: 'DELETE' }),
+    resetEmployeePassword: (id: string) => fetchJson(`/employees/${id}/reset-password`, { method: 'POST' }),
+    assignTaskToEmployee: (employeeId: string, taskId: string) => fetchJson(`/employees/${employeeId}/assign-task`, { method: 'POST', body: JSON.stringify({ taskId }) }),
 };

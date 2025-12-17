@@ -5,6 +5,9 @@ import { useTranslation } from '../contexts/LanguageContext';
 import { useData } from '../contexts/DataContext';
 import { toast } from './Toast';
 
+// Helper function for status checks (handles both legacy strings and new enums)
+const isPaid = (status: any) => status === 'Paid' || status === 'PAID';
+
 interface DateRange {
     start: Date;
     end: Date;
@@ -14,7 +17,7 @@ const Reports: React.FC = () => {
     const { t } = useTranslation();
     const { matters, clients, timeEntries, invoices, tasks } = useData();
 
-    const [activeReport, setActiveReport] = useState<'performance' | 'profitability' | 'matters' | 'billing'>('performance');
+    const [activeReport, setActiveReport] = useState<'performance' | 'profitability' | 'matters' | 'billing' | 'kpis'>('performance');
     const [dateRange, setDateRange] = useState<DateRange>({
         start: new Date(new Date().setMonth(new Date().getMonth() - 3)),
         end: new Date()
@@ -95,7 +98,7 @@ const Reports: React.FC = () => {
         // Count invoices
         invoices?.forEach(invoice => {
             const clientId = invoice.client?.id;
-            if (invoice.status === 'Paid' && clientId && clientStats[clientId]) {
+            if (isPaid(invoice.status) && clientId && clientStats[clientId]) {
                 clientStats[clientId].revenue += invoice.amount;
             }
         });
@@ -154,7 +157,7 @@ const Reports: React.FC = () => {
             const key = date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
             if (months[key]) {
                 months[key].billed += invoice.amount;
-                if (invoice.status === 'Paid') {
+                if (isPaid(invoice.status)) {
                     months[key].collected += invoice.amount;
                 }
             }
@@ -232,8 +235,80 @@ const Reports: React.FC = () => {
         { id: 'performance', label: 'Attorney Performance', icon: BarChart3 },
         { id: 'profitability', label: 'Client Profitability', icon: DollarSign },
         { id: 'matters', label: 'Matter Analysis', icon: FileText },
-        { id: 'billing', label: 'Billing Trends', icon: Clock }
+        { id: 'billing', label: 'Billing Trends', icon: Clock },
+        { id: 'kpis', label: 'KPIs & Aging', icon: Users }
     ];
+
+    // Advanced KPIs calculation
+    const kpiData = useMemo(() => {
+        const now = new Date();
+
+        // Total available hours (standard 8h/day, 20 days/month for 3 months = 480 hours per attorney)
+        const attorneyCount = Object.keys(performanceData).length || 1;
+        const totalAvailableHours = attorneyCount * 480;
+
+        // Total billable hours worked
+        const totalBillableHours = timeEntries?.reduce((sum, t) => sum + (t.duration / 60), 0) || 0;
+
+        // Total hours billed to clients (from invoices)
+        const totalBilledAmount = invoices?.reduce((sum, inv) => sum + inv.amount, 0) || 0;
+        const totalCollected = invoices?.filter(i => i.status === 'Paid' || i.status === 'PAID').reduce((sum, inv) => sum + inv.amount, 0) || 0;
+
+        // Worked value (hours * rate)
+        const totalWorkedValue = timeEntries?.reduce((sum, t) => sum + ((t.duration / 60) * t.rate), 0) || 0;
+
+        // Utilization Rate = Billable Hours / Available Hours
+        const utilizationRate = totalAvailableHours > 0 ? (totalBillableHours / totalAvailableHours) * 100 : 0;
+
+        // Realization Rate = Billed / Worked Value
+        const realizationRate = totalWorkedValue > 0 ? (totalBilledAmount / totalWorkedValue) * 100 : 0;
+
+        // Collection Rate = Collected / Billed
+        const collectionRate = totalBilledAmount > 0 ? (totalCollected / totalBilledAmount) * 100 : 0;
+
+        // A/R Aging buckets
+        const aging = { current: 0, days30: 0, days60: 0, days90: 0, over90: 0 };
+
+        invoices?.forEach(inv => {
+            if (inv.status === 'Paid' || inv.status === 'PAID') return;
+
+            const dueDate = new Date(inv.dueDate);
+            const daysOverdue = Math.floor((now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
+
+            if (daysOverdue <= 0) {
+                aging.current += inv.amount;
+            } else if (daysOverdue <= 30) {
+                aging.days30 += inv.amount;
+            } else if (daysOverdue <= 60) {
+                aging.days60 += inv.amount;
+            } else if (daysOverdue <= 90) {
+                aging.days90 += inv.amount;
+            } else {
+                aging.over90 += inv.amount;
+            }
+        });
+
+        // WIP (Work In Progress) - unbilled time & expenses
+        const wip = timeEntries?.filter(t => !t.billed).reduce((sum, t) => sum + ((t.duration / 60) * t.rate), 0) || 0;
+
+        return {
+            utilizationRate,
+            realizationRate,
+            collectionRate,
+            totalBillableHours,
+            totalBilledAmount,
+            totalCollected,
+            wip,
+            aging,
+            agingData: [
+                { name: 'Current', value: aging.current, color: '#10b981' },
+                { name: '1-30 Days', value: aging.days30, color: '#f59e0b' },
+                { name: '31-60 Days', value: aging.days60, color: '#f97316' },
+                { name: '61-90 Days', value: aging.days90, color: '#ef4444' },
+                { name: '90+ Days', value: aging.over90, color: '#dc2626' }
+            ]
+        };
+    }, [timeEntries, invoices, performanceData]);
 
     return (
         <div className="p-6 space-y-6 h-full overflow-y-auto">
@@ -443,6 +518,100 @@ const Reports: React.FC = () => {
                                         return billed > 0 ? ((collected / billed) * 100).toFixed(1) : 0;
                                     })()}%
                                 </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {activeReport === 'kpis' && (
+                    <div className="space-y-6">
+                        <h3 className="text-lg font-bold text-slate-800">Key Performance Indicators</h3>
+
+                        {/* Rate Cards */}
+                        <div className="grid grid-cols-4 gap-4">
+                            <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-5 text-white">
+                                <p className="text-sm text-blue-100 font-medium">Utilization Rate</p>
+                                <p className="text-3xl font-bold mt-2">{kpiData.utilizationRate.toFixed(1)}%</p>
+                                <p className="text-xs text-blue-200 mt-1">Billable / Available Hours</p>
+                                <div className="mt-3 bg-blue-400/30 rounded-full h-2">
+                                    <div
+                                        className="bg-white rounded-full h-2 transition-all"
+                                        style={{ width: `${Math.min(kpiData.utilizationRate, 100)}%` }}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-5 text-white">
+                                <p className="text-sm text-purple-100 font-medium">Realization Rate</p>
+                                <p className="text-3xl font-bold mt-2">{kpiData.realizationRate.toFixed(1)}%</p>
+                                <p className="text-xs text-purple-200 mt-1">Billed / Worked Value</p>
+                                <div className="mt-3 bg-purple-400/30 rounded-full h-2">
+                                    <div
+                                        className="bg-white rounded-full h-2 transition-all"
+                                        style={{ width: `${Math.min(kpiData.realizationRate, 100)}%` }}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl p-5 text-white">
+                                <p className="text-sm text-emerald-100 font-medium">Collection Rate</p>
+                                <p className="text-3xl font-bold mt-2">{kpiData.collectionRate.toFixed(1)}%</p>
+                                <p className="text-xs text-emerald-200 mt-1">Collected / Billed</p>
+                                <div className="mt-3 bg-emerald-400/30 rounded-full h-2">
+                                    <div
+                                        className="bg-white rounded-full h-2 transition-all"
+                                        style={{ width: `${Math.min(kpiData.collectionRate, 100)}%` }}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl p-5 text-white">
+                                <p className="text-sm text-amber-100 font-medium">Work In Progress</p>
+                                <p className="text-3xl font-bold mt-2">${kpiData.wip.toLocaleString()}</p>
+                                <p className="text-xs text-amber-200 mt-1">Unbilled Time & Expenses</p>
+                            </div>
+                        </div>
+
+                        {/* A/R Aging Chart */}
+                        <div className="grid grid-cols-2 gap-6">
+                            <div>
+                                <h4 className="font-bold text-gray-700 mb-4">A/R Aging Analysis</h4>
+                                <div className="h-64">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={kpiData.agingData} layout="vertical">
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                            <XAxis type="number" tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
+                                            <YAxis dataKey="name" type="category" width={80} />
+                                            <Tooltip formatter={(value: any) => `$${value.toLocaleString()}`} />
+                                            <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                                                {kpiData.agingData.map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={entry.color} />
+                                                ))}
+                                            </Bar>
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </div>
+
+                            <div>
+                                <h4 className="font-bold text-gray-700 mb-4">Aging Breakdown</h4>
+                                <div className="space-y-3">
+                                    {kpiData.agingData.map((item, i) => (
+                                        <div key={i} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
+                                                <span className="font-medium text-gray-700">{item.name}</span>
+                                            </div>
+                                            <span className="font-bold text-gray-900">${item.value.toLocaleString()}</span>
+                                        </div>
+                                    ))}
+                                    <div className="flex items-center justify-between p-3 bg-slate-800 rounded-lg text-white">
+                                        <span className="font-bold">Total Outstanding</span>
+                                        <span className="font-bold text-lg">
+                                            ${Object.values(kpiData.aging).reduce((a, b) => a + b, 0).toLocaleString()}
+                                        </span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>

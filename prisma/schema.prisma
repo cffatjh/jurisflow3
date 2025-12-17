@@ -74,6 +74,7 @@ model Matter {
   events      CalendarEvent[]
   clientMessages ClientMessage[]  // Messages related to this matter
   documents   Document[]  // Documents related to this matter
+  invoices    Invoice[]   // Invoices for this matter
   trustTransactions TrustTransaction[]  // Trust account transactions
   settlementStatements SettlementStatement[]  // Settlement statements
 }
@@ -96,6 +97,10 @@ model Task {
 
   templateId String?
   template   TaskTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+
+  // Çalışan ataması
+  assignedEmployeeId String?
+  assignedEmployee   Employee? @relation("EmployeeTasks", fields: [assignedEmployeeId], references: [id])
 
   completedAt DateTime?
   createdAt   DateTime @default(now())
@@ -173,17 +178,194 @@ model CalendarEvent {
 }
 
 // ------------------------------
+// INVOICE STATUS (Fatura Durumu)
+// ------------------------------
+enum InvoiceStatus {
+  DRAFT              // Taslak
+  PENDING_APPROVAL   // Onay Bekliyor
+  APPROVED           // Onaylandı
+  SENT               // Gönderildi
+  PARTIALLY_PAID     // Kısmi Ödendi
+  PAID               // Ödendi
+  OVERDUE            // Vadesi Geçti
+  WRITTEN_OFF        // Silindi/Write-off
+  CANCELLED          // İptal
+}
+
+// ------------------------------
+// LINE ITEM TYPE (Kalem Tipi)
+// ------------------------------
+enum LineItemType {
+  TIME               // Zaman
+  EXPENSE            // Masraf
+  FIXED_FEE          // Sabit Ücret
+  DISCOUNT           // İndirim
+  TAX                // Vergi
+  WRITE_OFF          // Silme
+  RETAINER           // Avans
+  COURT_FEE          // Mahkeme Harcı
+  OTHER              // Diğer
+}
+
+// ------------------------------
 // INVOICE (Fatura)
 // ------------------------------
 model Invoice {
   id        String   @id @default(cuid())
-  number    String
-  amount    Float
-  dueDate   DateTime
-  status    String    // Paid | Overdue | Draft | Sent
-
+  number    String   @unique
+  
+  // Tutarlar
+  subtotal  Float    @default(0)    // Ara toplam
+  taxRate   Float?                  // Vergi oranı (%)
+  taxAmount Float    @default(0)    // Vergi tutarı
+  discount  Float    @default(0)    // İndirim tutarı
+  amount    Float                   // Toplam tutar
+  amountPaid Float   @default(0)    // Ödenen tutar
+  balance   Float    @default(0)    // Kalan bakiye
+  
+  // Tarihler
+  issueDate DateTime @default(now()) // Düzenleme tarihi
+  dueDate   DateTime                  // Vade tarihi
+  paidDate  DateTime?                 // Ödeme tarihi
+  
+  // Durum ve Workflow
+  status    InvoiceStatus @default(DRAFT)
+  approvedBy String?                  // Onaylayan
+  approvedAt DateTime?                // Onay tarihi
+  sentAt    DateTime?                 // Gönderilme tarihi
+  
+  // LEDES/UTBMS
+  ledesCode String?                   // LEDES invoice code
+  
+  // İlişkiler
   clientId  String
   client    Client    @relation(fields: [clientId], references: [id])
+  matterId  String?
+  matter    Matter?   @relation(fields: [matterId], references: [id])
+  
+  // Alt tablolar
+  lineItems InvoiceLineItem[]
+  payments  InvoicePayment[]
+  
+  // Notlar ve Açıklamalar
+  notes     String?
+  terms     String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ------------------------------
+// INVOICE LINE ITEM (Fatura Kalemi)
+// ------------------------------
+model InvoiceLineItem {
+  id          String        @id @default(cuid())
+  invoiceId   String
+  invoice     Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  
+  type        LineItemType
+  description String
+  quantity    Float         @default(1)
+  rate        Float         @default(0)
+  amount      Float         // quantity * rate
+  
+  // LEDES/UTBMS kodları
+  utbmsActivityCode String? // L110, L120 vb.
+  utbmsExpenseCode  String? // E101, E102 vb.
+  utbmsTaskCode     String? // Task code
+  
+  // İlişkili kayıtlar
+  timeEntryId String?       // Bağlı zaman kaydı
+  expenseId   String?       // Bağlı masraf
+  
+  taxable     Boolean       @default(true)
+  billable    Boolean       @default(true)
+  writtenOff  Boolean       @default(false)
+  
+  date        DateTime      @default(now())
+  createdAt   DateTime      @default(now())
+}
+
+// ------------------------------
+// INVOICE PAYMENT (Fatura Ödemesi)
+// ------------------------------
+model InvoicePayment {
+  id          String   @id @default(cuid())
+  invoiceId   String
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  
+  amount      Float
+  method      String   // cash, check, credit_card, bank_transfer, trust
+  reference   String?  // Check number, transaction ID
+  
+  // Stripe entegrasyonu
+  stripePaymentId String?
+  
+  // Refund
+  isRefund    Boolean  @default(false)
+  refundReason String?
+  
+  notes       String?
+  paidAt      DateTime @default(now())
+  createdAt   DateTime @default(now())
+}
+
+// ------------------------------
+// EMPLOYEE ROLE (Çalışan Rolleri)
+// ------------------------------
+enum EmployeeRole {
+  SECRETARY       // Sekreter
+  PARALEGAL       // Paralegal
+  INTERN_LAWYER   // Stajyer Avukat
+  ACCOUNTANT      // Muhasebeci
+}
+
+// ------------------------------
+// EMPLOYEE STATUS (Çalışan Durumu)
+// ------------------------------
+enum EmployeeStatus {
+  ACTIVE          // Aktif
+  ON_LEAVE        // İzinli
+  TERMINATED      // İşten Ayrıldı
+}
+
+// ------------------------------
+// EMPLOYEE (Çalışan)
+// ------------------------------
+model Employee {
+  id              String         @id @default(cuid())
+  firstName       String
+  lastName        String
+  email           String         @unique
+  phone           String?
+  mobile          String?
+  role            EmployeeRole
+  status          EmployeeStatus @default(ACTIVE)
+  
+  // Çalışma Bilgileri
+  hireDate        DateTime       @default(now())
+  terminationDate DateTime?
+  hourlyRate      Float?
+  salary          Float?
+  
+  // Sistem Hesabı (Giriş yapabilmesi için)
+  userId          String?        @unique
+  user            User?          @relation(fields: [userId], references: [id])
+  
+  // Notlar ve İletişim
+  notes           String?
+  address         String?
+  emergencyContact String?
+  emergencyPhone  String?
+  
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  
+  // İlişkiler
+  assignedTasks   Task[]         @relation("EmployeeTasks")
+  supervisorId    String?
+  supervisor      Employee?      @relation("EmployeeSupervisor", fields: [supervisorId], references: [id])
+  subordinates    Employee[]     @relation("EmployeeSupervisor")
 }
 
 // ------------------------------
@@ -193,7 +375,7 @@ model User {
   id           String   @id @default(cuid())
   email        String   @unique
   name         String
-  role         String   // Admin | Partner | Associate
+  role         String   // Admin | Partner | Associate | Employee
   passwordHash String
   phone        String?
   mobile       String?
@@ -207,11 +389,13 @@ model User {
   avatar       String?   // Avatar URL
   preferences  String?   // JSON string for user preferences
   notificationPreferences String? // JSON string for notification settings
+  employeeRole String?   // For employee users: SECRETARY | PARALEGAL | INTERN_LAWYER | ACCOUNTANT
   createdAt    DateTime? @default(now())
   updatedAt    DateTime? @updatedAt
 
   notifications     Notification[]
   pushSubscriptions PushSubscription[]
+  employee          Employee?
 }
 
 // ------------------------------
@@ -268,6 +452,108 @@ model Document {
   updatedAt   DateTime @updatedAt
   
   signatureRequests SignatureRequest[]  // E-imza talepleri
+  versions          DocumentVersion[]   // Version history
+}
+
+// ------------------------------
+// DOCUMENT VERSION (Doküman Versiyonu)
+// ------------------------------
+model DocumentVersion {
+  id            String   @id @default(cuid())
+  documentId    String
+  document      Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  
+  versionNumber Int
+  fileName      String
+  filePath      String
+  fileSize      Int
+  mimeType      String
+  
+  // Değişiklik bilgisi
+  changeNote    String?
+  changedBy     String?   // User who made changes
+  
+  // Karşılaştırma için
+  checksum      String?   // MD5/SHA hash
+  diffSummary   String?   // JSON: what changed from previous version
+  
+  isLatest      Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+}
+
+// ------------------------------
+// DEADLINE RULE TYPE
+// ------------------------------
+enum DeadlineRuleType {
+  COURT_FILING     // Mahkeme dosyalama
+  RESPONSE_DUE     // Cevap süresi
+  DISCOVERY        // Keşif
+  MOTION           // Dilekçe
+  APPEAL           // Temyiz
+  STATUTE_OF_LIMIT // Zamanaşımı
+  CONTRACT         // Sözleşme
+  CUSTOM           // Özel
+}
+
+// ------------------------------
+// DEADLINE RULE (Son Tarih Kuralı)
+// ------------------------------
+model DeadlineRule {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  type        DeadlineRuleType
+  
+  // Süre hesaplama
+  baseDays    Int      // Temel gün sayısı
+  useBusinessDays Boolean @default(true)  // İş günü mü?
+  excludeHolidays Boolean @default(true)  // Tatilleri hariç tut?
+  
+  // Trigger koşulları
+  triggerEvent String?  // service_date, filing_date, etc.
+  jurisdiction String?  // Yargı bölgesi
+  practiceArea String?  // Uygulama alanı
+  
+  // Hatırlatma ayarları (JSON array: [30, 7, 1])
+  reminderDays String?  // JSON: [30, 7, 1] = T-30, T-7, T-1
+  
+  // Uygulama
+  isActive    Boolean  @default(true)
+  priority    Int      @default(0)
+  
+  createdBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Hesaplanan deadline'lar
+  calculatedDeadlines CalculatedDeadline[]
+}
+
+// ------------------------------
+// CALCULATED DEADLINE (Hesaplanmış Son Tarih)
+// ------------------------------
+model CalculatedDeadline {
+  id            String       @id @default(cuid())
+  ruleId        String
+  rule          DeadlineRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  matterId      String
+  
+  // Tarihler
+  triggerDate   DateTime     // Başlangıç tarihi
+  dueDate       DateTime     // Hesaplanan son tarih
+  
+  // Hatırlatma durumu
+  reminder30Sent Boolean     @default(false)
+  reminder7Sent  Boolean     @default(false)
+  reminder1Sent  Boolean     @default(false)
+  
+  // Durum
+  status        String       @default("pending") // pending, completed, overdue
+  completedAt   DateTime?
+  notes         String?
+  
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 }
 
 // ------------------------------
@@ -385,20 +671,73 @@ model PaymentReminder {
 }
 
 // ------------------------------
+// TRUST TRANSACTION TYPE
+// ------------------------------
+enum TrustTransactionType {
+  DEPOSIT          // Para yatırma
+  WITHDRAWAL       // Para çekme (earned olarak)
+  TRANSFER_IN      // Başka matter'dan transfer
+  TRANSFER_OUT     // Başka matter'a transfer
+  REFUND_TO_CLIENT // Müşteriye iade
+  FEE_EARNED       // Kazanılmış ücret (operating'e transfer)
+  INTEREST         // Faiz (varsa)
+}
+
+// ------------------------------
 // TRUST TRANSACTION (Emanet Hesap İşlemi)
 // ------------------------------
 model TrustTransaction {
   id          String   @id @default(cuid())
   matterId    String
   matter      Matter   @relation(fields: [matterId], references: [id], onDelete: Cascade)
-  type        String   // deposit, withdrawal, transfer, refund
+  
+  type        TrustTransactionType
   amount      Float
   description String
   reference   String?  // Check number, wire reference etc.
-  balance     Float    // Running balance after this transaction
+  
+  // IOLTA Tracking
+  isEarned    Boolean  @default(false) // Para kazanıldı mı?
+  earnedDate  DateTime?                // Ne zaman earned oldu
+  
+  // Running balance
+  balanceBefore Float  @default(0)
+  balanceAfter  Float  @default(0)
+  
+  // Audit
   createdBy   String?  // User who created
+  approvedBy  String?  // Partner who approved (for large amounts)
+  approvedAt  DateTime?
+  
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+// ------------------------------
+// TRUST REQUEST (Emanet Talebi)
+// ------------------------------
+model TrustRequest {
+  id              String   @id @default(cuid())
+  matterId        String
+  clientId        String
+  
+  requestedAmount Float
+  currentBalance  Float
+  minimumRequired Float     // Minimum threshold
+  
+  status          String    @default("pending") // pending, sent, paid, cancelled
+  
+  // İletişim
+  emailSentAt     DateTime?
+  reminderCount   Int       @default(0)
+  lastReminderAt  DateTime?
+  
+  notes           String?
+  paidAt          DateTime?
+  
+  createdBy       String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 }
 
 // ------------------------------

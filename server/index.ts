@@ -1240,10 +1240,18 @@ app.post('/api/expenses', async (req, res) => {
 });
 
 // ===================== INVOICES =====================
+
+// Get all invoices with line items and payments
 app.get('/api/invoices', async (req, res) => {
   try {
     const invoices = await prisma.invoice.findMany({
-      include: { client: true },
+      include: {
+        client: true,
+        matter: true,
+        lineItems: true,
+        payments: true
+      },
+      orderBy: { createdAt: 'desc' }
     });
     res.json(invoices);
   } catch (err) {
@@ -1252,35 +1260,359 @@ app.get('/api/invoices', async (req, res) => {
   }
 });
 
+// Get single invoice with details
+app.get('/api/invoices/:id', asyncHandler(async (req: any, res: any) => {
+  const invoice = await prisma.invoice.findUnique({
+    where: { id: req.params.id },
+    include: {
+      client: true,
+      matter: true,
+      lineItems: true,
+      payments: true
+    }
+  });
+  if (!invoice) {
+    return res.status(404).json({ message: 'Fatura bulunamadı' });
+  }
+  res.json(invoice);
+}));
+
+// Create invoice with line items
 app.post('/api/invoices', asyncHandler(async (req: any, res: any) => {
-  const data = req.body; // { number, amount, dueDate, status, clientId, ... }
+  const { number, clientId, matterId, dueDate, lineItems, notes, terms, taxRate } = req.body;
+
+  // Calculate totals from line items
+  let subtotal = 0;
+  if (lineItems && lineItems.length > 0) {
+    subtotal = lineItems.reduce((sum: number, item: any) => {
+      const itemAmount = (item.quantity || 1) * (item.rate || 0);
+      return sum + (item.type === 'DISCOUNT' ? -itemAmount : itemAmount);
+    }, 0);
+  }
+
+  const taxAmount = taxRate ? subtotal * (taxRate / 100) : 0;
+  const amount = subtotal + taxAmount;
+
   const created = await prisma.invoice.create({
     data: {
-      number: data.number,
-      amount: data.amount,
-      dueDate: data.dueDate ? new Date(data.dueDate) : new Date(),
-      status: data.status,
-      clientId: data.clientId,
+      number: number || `INV-${Date.now()}`,
+      clientId,
+      matterId: matterId || null,
+      subtotal,
+      taxRate: taxRate || null,
+      taxAmount,
+      discount: 0,
+      amount,
+      amountPaid: 0,
+      balance: amount,
+      dueDate: dueDate ? new Date(dueDate) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days default
+      status: 'DRAFT',
+      notes,
+      terms,
+      lineItems: lineItems ? {
+        create: lineItems.map((item: any) => ({
+          type: item.type || 'OTHER',
+          description: item.description,
+          quantity: item.quantity || 1,
+          rate: item.rate || 0,
+          amount: (item.quantity || 1) * (item.rate || 0),
+          utbmsActivityCode: item.utbmsActivityCode,
+          utbmsExpenseCode: item.utbmsExpenseCode,
+          taxable: item.taxable !== false,
+          billable: item.billable !== false,
+          timeEntryId: item.timeEntryId,
+          expenseId: item.expenseId
+        }))
+      } : undefined
     },
-    include: { client: true },
+    include: { client: true, lineItems: true }
   });
 
-  // Send email notification if status is 'Sent'
-  if (data.status === 'Sent' && created.client) {
+  res.status(201).json(created);
+}));
+
+// Update invoice
+app.put('/api/invoices/:id', asyncHandler(async (req: any, res: any) => {
+  const { notes, terms, dueDate, taxRate } = req.body;
+
+  const invoice = await prisma.invoice.findUnique({
+    where: { id: req.params.id },
+    include: { lineItems: true }
+  });
+
+  if (!invoice) {
+    return res.status(404).json({ message: 'Fatura bulunamadı' });
+  }
+
+  if (invoice.status !== 'DRAFT') {
+    return res.status(400).json({ message: 'Sadece taslak faturalar düzenlenebilir' });
+  }
+
+  // Recalculate if tax rate changed
+  const newTaxRate = taxRate !== undefined ? taxRate : invoice.taxRate;
+  const newTaxAmount = newTaxRate ? invoice.subtotal * (newTaxRate / 100) : 0;
+  const newAmount = invoice.subtotal + newTaxAmount - invoice.discount;
+
+  const updated = await prisma.invoice.update({
+    where: { id: req.params.id },
+    data: {
+      notes,
+      terms,
+      dueDate: dueDate ? new Date(dueDate) : undefined,
+      taxRate: newTaxRate,
+      taxAmount: newTaxAmount,
+      amount: newAmount,
+      balance: newAmount - invoice.amountPaid
+    },
+    include: { client: true, lineItems: true, payments: true }
+  });
+
+  res.json(updated);
+}));
+
+// Delete invoice (only drafts)
+app.delete('/api/invoices/:id', asyncHandler(async (req: any, res: any) => {
+  const invoice = await prisma.invoice.findUnique({ where: { id: req.params.id } });
+
+  if (!invoice) {
+    return res.status(404).json({ message: 'Fatura bulunamadı' });
+  }
+
+  if (invoice.status !== 'DRAFT' && invoice.status !== 'CANCELLED') {
+    return res.status(400).json({ message: 'Sadece taslak veya iptal edilmiş faturalar silinebilir' });
+  }
+
+  await prisma.invoice.delete({ where: { id: req.params.id } });
+  res.json({ success: true });
+}));
+
+// ===================== INVOICE WORKFLOW =====================
+
+// Approve invoice (DRAFT -> APPROVED)
+app.post('/api/invoices/:id/approve', asyncHandler(async (req: any, res: any) => {
+  const invoice = await prisma.invoice.findUnique({ where: { id: req.params.id } });
+
+  if (!invoice) {
+    return res.status(404).json({ message: 'Fatura bulunamadı' });
+  }
+
+  if (invoice.status !== 'DRAFT' && invoice.status !== 'PENDING_APPROVAL') {
+    return res.status(400).json({ message: 'Sadece taslak veya onay bekleyen faturalar onaylanabilir' });
+  }
+
+  const updated = await prisma.invoice.update({
+    where: { id: req.params.id },
+    data: {
+      status: 'APPROVED',
+      approvedAt: new Date(),
+      approvedBy: req.body.approvedBy || 'Admin'
+    },
+    include: { client: true, lineItems: true }
+  });
+
+  res.json(updated);
+}));
+
+// Send invoice (APPROVED -> SENT)
+app.post('/api/invoices/:id/send', asyncHandler(async (req: any, res: any) => {
+  const invoice = await prisma.invoice.findUnique({
+    where: { id: req.params.id },
+    include: { client: true }
+  });
+
+  if (!invoice) {
+    return res.status(404).json({ message: 'Fatura bulunamadı' });
+  }
+
+  if (invoice.status !== 'APPROVED' && invoice.status !== 'DRAFT') {
+    return res.status(400).json({ message: 'Fatura gönderilemez, önce onaylanmalı' });
+  }
+
+  const updated = await prisma.invoice.update({
+    where: { id: req.params.id },
+    data: {
+      status: 'SENT',
+      sentAt: new Date()
+    },
+    include: { client: true, lineItems: true }
+  });
+
+  // Send email notification
+  if (updated.client) {
     const template = emailTemplates.invoiceSent(
-      created.number,
-      created.amount,
-      new Date(created.dueDate).toLocaleDateString('tr-TR'),
-      created.client.name
+      updated.number,
+      updated.amount,
+      new Date(updated.dueDate).toLocaleDateString('tr-TR'),
+      updated.client.name
     );
     await sendEmail({
-      to: created.client.email,
+      to: updated.client.email,
       subject: template.subject,
       html: template.html,
     });
   }
 
-  res.status(201).json(created);
+  res.json(updated);
+}));
+
+// ===================== INVOICE LINE ITEMS =====================
+
+// Add line item
+app.post('/api/invoices/:id/line-items', asyncHandler(async (req: any, res: any) => {
+  const { type, description, quantity, rate, utbmsActivityCode, utbmsExpenseCode, taxable } = req.body;
+
+  const invoice = await prisma.invoice.findUnique({ where: { id: req.params.id } });
+  if (!invoice || invoice.status !== 'DRAFT') {
+    return res.status(400).json({ message: 'Sadece taslak faturalara kalem eklenebilir' });
+  }
+
+  const amount = (quantity || 1) * (rate || 0);
+
+  const lineItem = await prisma.invoiceLineItem.create({
+    data: {
+      invoiceId: req.params.id,
+      type: type || 'OTHER',
+      description,
+      quantity: quantity || 1,
+      rate: rate || 0,
+      amount,
+      utbmsActivityCode,
+      utbmsExpenseCode,
+      taxable: taxable !== false
+    }
+  });
+
+  // Recalculate invoice totals
+  const allItems = await prisma.invoiceLineItem.findMany({ where: { invoiceId: req.params.id } });
+  const subtotal = allItems.reduce((sum, item) => sum + item.amount, 0);
+  const taxAmount = invoice.taxRate ? subtotal * (invoice.taxRate / 100) : 0;
+  const newAmount = subtotal + taxAmount - invoice.discount;
+
+  await prisma.invoice.update({
+    where: { id: req.params.id },
+    data: { subtotal, taxAmount, amount: newAmount, balance: newAmount - invoice.amountPaid }
+  });
+
+  res.status(201).json(lineItem);
+}));
+
+// Delete line item
+app.delete('/api/invoices/:invoiceId/line-items/:itemId', asyncHandler(async (req: any, res: any) => {
+  const invoice = await prisma.invoice.findUnique({ where: { id: req.params.invoiceId } });
+  if (!invoice || invoice.status !== 'DRAFT') {
+    return res.status(400).json({ message: 'Sadece taslak faturalardan kalem silinebilir' });
+  }
+
+  await prisma.invoiceLineItem.delete({ where: { id: req.params.itemId } });
+
+  // Recalculate
+  const allItems = await prisma.invoiceLineItem.findMany({ where: { invoiceId: req.params.invoiceId } });
+  const subtotal = allItems.reduce((sum, item) => sum + item.amount, 0);
+  const taxAmount = invoice.taxRate ? subtotal * (invoice.taxRate / 100) : 0;
+  const newAmount = subtotal + taxAmount - invoice.discount;
+
+  await prisma.invoice.update({
+    where: { id: req.params.invoiceId },
+    data: { subtotal, taxAmount, amount: newAmount, balance: newAmount - invoice.amountPaid }
+  });
+
+  res.json({ success: true });
+}));
+
+// ===================== INVOICE PAYMENTS =====================
+
+// Record payment (partial or full)
+app.post('/api/invoices/:id/payments', asyncHandler(async (req: any, res: any) => {
+  const { amount, method, reference, notes } = req.body;
+
+  const invoice = await prisma.invoice.findUnique({ where: { id: req.params.id } });
+  if (!invoice) {
+    return res.status(404).json({ message: 'Fatura bulunamadı' });
+  }
+
+  if (amount <= 0) {
+    return res.status(400).json({ message: 'Ödeme tutarı pozitif olmalıdır' });
+  }
+
+  if (amount > invoice.balance) {
+    return res.status(400).json({ message: 'Ödeme tutarı kalan bakiyeyi aşamaz' });
+  }
+
+  const payment = await prisma.invoicePayment.create({
+    data: {
+      invoiceId: req.params.id,
+      amount,
+      method: method || 'cash',
+      reference,
+      notes,
+      isRefund: false
+    }
+  });
+
+  const newAmountPaid = invoice.amountPaid + amount;
+  const newBalance = invoice.amount - newAmountPaid;
+  let newStatus = invoice.status;
+
+  if (newBalance <= 0) {
+    newStatus = 'PAID';
+  } else if (newAmountPaid > 0) {
+    newStatus = 'PARTIALLY_PAID';
+  }
+
+  await prisma.invoice.update({
+    where: { id: req.params.id },
+    data: {
+      amountPaid: newAmountPaid,
+      balance: newBalance,
+      status: newStatus,
+      paidDate: newStatus === 'PAID' ? new Date() : undefined
+    }
+  });
+
+  res.status(201).json(payment);
+}));
+
+// Refund payment
+app.post('/api/invoices/:invoiceId/payments/:paymentId/refund', asyncHandler(async (req: any, res: any) => {
+  const { reason } = req.body;
+
+  const payment = await prisma.invoicePayment.findUnique({ where: { id: req.params.paymentId } });
+  if (!payment || payment.isRefund) {
+    return res.status(400).json({ message: 'Geçersiz ödeme veya zaten iade edilmiş' });
+  }
+
+  const invoice = await prisma.invoice.findUnique({ where: { id: req.params.invoiceId } });
+  if (!invoice) {
+    return res.status(404).json({ message: 'Fatura bulunamadı' });
+  }
+
+  // Create refund record
+  const refund = await prisma.invoicePayment.create({
+    data: {
+      invoiceId: req.params.invoiceId,
+      amount: -payment.amount,
+      method: payment.method,
+      reference: `Refund: ${payment.reference || payment.id}`,
+      isRefund: true,
+      refundReason: reason,
+      notes: `Refund of payment ${payment.id}`
+    }
+  });
+
+  const newAmountPaid = invoice.amountPaid - payment.amount;
+  const newBalance = invoice.amount - newAmountPaid;
+
+  await prisma.invoice.update({
+    where: { id: req.params.invoiceId },
+    data: {
+      amountPaid: newAmountPaid,
+      balance: newBalance,
+      status: newBalance > 0 ? 'SENT' : 'PAID',
+      paidDate: null
+    }
+  });
+
+  res.json(refund);
 }));
 
 // Generate invoice PDF
@@ -3350,6 +3682,192 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// ===================== EMPLOYEES (Çalışanlar) =====================
+
+// Get all employees
+app.get('/api/employees', asyncHandler(async (req: any, res: any) => {
+  const employees = await prisma.employee.findMany({
+    include: {
+      user: { select: { id: true, email: true, name: true } },
+      supervisor: { select: { id: true, firstName: true, lastName: true } },
+      assignedTasks: { select: { id: true, title: true, status: true } }
+    },
+    orderBy: { createdAt: 'desc' }
+  });
+  res.json(employees);
+}));
+
+// Get single employee
+app.get('/api/employees/:id', asyncHandler(async (req: any, res: any) => {
+  const employee = await prisma.employee.findUnique({
+    where: { id: req.params.id },
+    include: {
+      user: { select: { id: true, email: true, name: true } },
+      supervisor: { select: { id: true, firstName: true, lastName: true } },
+      subordinates: { select: { id: true, firstName: true, lastName: true, role: true } },
+      assignedTasks: true
+    }
+  });
+  if (!employee) {
+    return res.status(404).json({ message: 'Çalışan bulunamadı' });
+  }
+  res.json(employee);
+}));
+
+// Create employee with user account
+app.post('/api/employees', asyncHandler(async (req: any, res: any) => {
+  const { firstName, lastName, email, phone, mobile, role, hireDate, hourlyRate, salary, notes, address, emergencyContact, emergencyPhone, supervisorId, password } = req.body;
+
+  if (!firstName || !lastName || !email || !role) {
+    return res.status(400).json({ message: 'Ad, soyad, e-posta ve rol zorunludur' });
+  }
+
+  // Check if email already exists
+  const existingUser = await prisma.user.findUnique({ where: { email } });
+  const existingEmployee = await prisma.employee.findUnique({ where: { email } });
+  if (existingUser || existingEmployee) {
+    return res.status(400).json({ message: 'Bu e-posta adresi zaten kullanılıyor' });
+  }
+
+  // Create user account for employee login
+  const defaultPassword = password || 'calisankisi123'; // Default temp password
+  const passwordHash = await bcrypt.hash(defaultPassword, 10);
+
+  const user = await prisma.user.create({
+    data: {
+      email,
+      name: `${firstName} ${lastName}`,
+      role: 'Employee', // Employee role for staff
+      employeeRole: role,
+      passwordHash
+    }
+  });
+
+  // Create employee record
+  const employee = await prisma.employee.create({
+    data: {
+      firstName,
+      lastName,
+      email,
+      phone,
+      mobile,
+      role, // SECRETARY | PARALEGAL | INTERN_LAWYER | ACCOUNTANT
+      hireDate: hireDate ? new Date(hireDate) : new Date(),
+      hourlyRate: hourlyRate ? parseFloat(hourlyRate) : null,
+      salary: salary ? parseFloat(salary) : null,
+      notes,
+      address,
+      emergencyContact,
+      emergencyPhone,
+      supervisorId: supervisorId || null,
+      userId: user.id
+    },
+    include: {
+      user: { select: { id: true, email: true, name: true } }
+    }
+  });
+
+  res.status(201).json(employee);
+}));
+
+// Update employee
+app.put('/api/employees/:id', asyncHandler(async (req: any, res: any) => {
+  const { firstName, lastName, phone, mobile, role, status, hireDate, terminationDate, hourlyRate, salary, notes, address, emergencyContact, emergencyPhone, supervisorId } = req.body;
+
+  const employee = await prisma.employee.findUnique({ where: { id: req.params.id } });
+  if (!employee) {
+    return res.status(404).json({ message: 'Çalışan bulunamadı' });
+  }
+
+  const updated = await prisma.employee.update({
+    where: { id: req.params.id },
+    data: {
+      firstName: firstName ?? employee.firstName,
+      lastName: lastName ?? employee.lastName,
+      phone,
+      mobile,
+      role: role ?? employee.role,
+      status: status ?? employee.status,
+      hireDate: hireDate ? new Date(hireDate) : employee.hireDate,
+      terminationDate: terminationDate ? new Date(terminationDate) : null,
+      hourlyRate: hourlyRate ? parseFloat(hourlyRate) : employee.hourlyRate,
+      salary: salary ? parseFloat(salary) : employee.salary,
+      notes,
+      address,
+      emergencyContact,
+      emergencyPhone,
+      supervisorId: supervisorId || null
+    },
+    include: {
+      user: { select: { id: true, email: true, name: true } }
+    }
+  });
+
+  // Update user's employeeRole if role changed
+  if (role && employee.userId) {
+    await prisma.user.update({
+      where: { id: employee.userId },
+      data: { employeeRole: role }
+    });
+  }
+
+  res.json(updated);
+}));
+
+// Delete employee
+app.delete('/api/employees/:id', asyncHandler(async (req: any, res: any) => {
+  const employee = await prisma.employee.findUnique({ where: { id: req.params.id } });
+  if (!employee) {
+    return res.status(404).json({ message: 'Çalışan bulunamadı' });
+  }
+
+  // Delete associated user account if exists
+  if (employee.userId) {
+    await prisma.user.delete({ where: { id: employee.userId } }).catch(() => { });
+  }
+
+  await prisma.employee.delete({ where: { id: req.params.id } });
+  res.json({ success: true, message: 'Çalışan silindi' });
+}));
+
+// Reset employee password
+app.post('/api/employees/:id/reset-password', asyncHandler(async (req: any, res: any) => {
+  const employee = await prisma.employee.findUnique({ where: { id: req.params.id } });
+  if (!employee || !employee.userId) {
+    return res.status(404).json({ message: 'Çalışan veya hesabı bulunamadı' });
+  }
+
+  const tempPassword = 'gecici' + Math.random().toString(36).slice(-6);
+  const passwordHash = await bcrypt.hash(tempPassword, 10);
+
+  await prisma.user.update({
+    where: { id: employee.userId },
+    data: { passwordHash }
+  });
+
+  // In production, send email with new password
+  res.json({ success: true, tempPassword, message: 'Şifre sıfırlandı' });
+}));
+
+// Assign task to employee
+app.post('/api/employees/:id/assign-task', asyncHandler(async (req: any, res: any) => {
+  const { taskId } = req.body;
+  if (!taskId) {
+    return res.status(400).json({ message: 'Görev ID gerekli' });
+  }
+
+  const employee = await prisma.employee.findUnique({ where: { id: req.params.id } });
+  if (!employee) {
+    return res.status(404).json({ message: 'Çalışan bulunamadı' });
+  }
+
+  const task = await prisma.task.update({
+    where: { id: taskId },
+    data: { assignedEmployeeId: req.params.id }
+  });
+
+  res.json({ success: true, task });
+}));
 
 
 // Error handler (must be last)
@@ -3359,6 +3877,329 @@ app.use(errorHandler);
 const PORT = process.env.PORT || 3001;
 
 // Create logs directory if it doesn't exist
+// ================================
+// DEADLINE RULES API
+// ================================
+
+// Get all deadline rules
+app.get('/api/deadline-rules', asyncHandler(async (req, res) => {
+  const rules = await prisma.deadlineRule.findMany({
+    orderBy: { priority: 'desc' },
+    include: { calculatedDeadlines: { take: 5, orderBy: { dueDate: 'asc' } } }
+  });
+  res.json(rules);
+}));
+
+// Create deadline rule
+app.post('/api/deadline-rules', asyncHandler(async (req, res) => {
+  const { name, description, type, baseDays, useBusinessDays, excludeHolidays, triggerEvent, jurisdiction, practiceArea, reminderDays, priority } = req.body;
+  const rule = await prisma.deadlineRule.create({
+    data: {
+      name,
+      description,
+      type,
+      baseDays,
+      useBusinessDays: useBusinessDays ?? true,
+      excludeHolidays: excludeHolidays ?? true,
+      triggerEvent,
+      jurisdiction,
+      practiceArea,
+      reminderDays: reminderDays ? JSON.stringify(reminderDays) : '[30, 7, 1]',
+      priority: priority ?? 0,
+      createdBy: req.adminId
+    }
+  });
+  res.status(201).json(rule);
+}));
+
+// Update deadline rule
+app.put('/api/deadline-rules/:id', asyncHandler(async (req, res) => {
+  const { name, description, baseDays, useBusinessDays, excludeHolidays, reminderDays, isActive, priority } = req.body;
+  const rule = await prisma.deadlineRule.update({
+    where: { id: req.params.id },
+    data: { name, description, baseDays, useBusinessDays, excludeHolidays, reminderDays: reminderDays ? JSON.stringify(reminderDays) : undefined, isActive, priority }
+  });
+  res.json(rule);
+}));
+
+// Delete deadline rule
+app.delete('/api/deadline-rules/:id', asyncHandler(async (req, res) => {
+  await prisma.deadlineRule.delete({ where: { id: req.params.id } });
+  res.json({ success: true });
+}));
+
+// Calculate deadline from a rule
+app.post('/api/deadline-rules/:ruleId/calculate', asyncHandler(async (req, res) => {
+  const { matterId, triggerDate } = req.body;
+  const rule = await prisma.deadlineRule.findUnique({ where: { id: req.params.ruleId } });
+  if (!rule) return res.status(404).json({ error: 'Rule not found' });
+
+  const trigger = new Date(triggerDate);
+  let dueDate = new Date(trigger);
+
+  if (rule.useBusinessDays) {
+    // Add business days (skip weekends)
+    let daysAdded = 0;
+    while (daysAdded < rule.baseDays) {
+      dueDate.setDate(dueDate.getDate() + 1);
+      const day = dueDate.getDay();
+      if (day !== 0 && day !== 6) daysAdded++; // Skip Saturday/Sunday
+    }
+  } else {
+    dueDate.setDate(dueDate.getDate() + rule.baseDays);
+  }
+
+  const deadline = await prisma.calculatedDeadline.create({
+    data: {
+      ruleId: rule.id,
+      matterId,
+      triggerDate: trigger,
+      dueDate,
+      status: 'pending'
+    },
+    include: { rule: true }
+  });
+  res.status(201).json(deadline);
+}));
+
+// Get calculated deadlines for a matter
+app.get('/api/matters/:matterId/deadlines', asyncHandler(async (req, res) => {
+  const deadlines = await prisma.calculatedDeadline.findMany({
+    where: { matterId: req.params.matterId },
+    include: { rule: true },
+    orderBy: { dueDate: 'asc' }
+  });
+  res.json(deadlines);
+}));
+
+// Update deadline status
+app.put('/api/deadlines/:id', asyncHandler(async (req, res) => {
+  const { status, notes, completedAt } = req.body;
+  const deadline = await prisma.calculatedDeadline.update({
+    where: { id: req.params.id },
+    data: { status, notes, completedAt: status === 'completed' ? new Date() : completedAt }
+  });
+  res.json(deadline);
+}));
+
+// Get all upcoming deadlines (for dashboard/notifications)
+app.get('/api/deadlines/upcoming', asyncHandler(async (req, res) => {
+  const now = new Date();
+  const thirtyDaysLater = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+  const deadlines = await prisma.calculatedDeadline.findMany({
+    where: {
+      status: 'pending',
+      dueDate: { lte: thirtyDaysLater }
+    },
+    include: { rule: true },
+    orderBy: { dueDate: 'asc' }
+  });
+  res.json(deadlines);
+}));
+
+// ================================
+// DOCUMENT VERSION API
+// ================================
+
+// Get document versions
+app.get('/api/documents/:documentId/versions', asyncHandler(async (req, res) => {
+  const versions = await prisma.documentVersion.findMany({
+    where: { documentId: req.params.documentId },
+    orderBy: { versionNumber: 'desc' }
+  });
+  res.json(versions);
+}));
+
+// Create new document version
+app.post('/api/documents/:documentId/versions', asyncHandler(async (req, res) => {
+  const { fileName, filePath, fileSize, mimeType, changeNote, checksum } = req.body;
+  const documentId = req.params.documentId;
+
+  // Get current version number
+  const latestVersion = await prisma.documentVersion.findFirst({
+    where: { documentId },
+    orderBy: { versionNumber: 'desc' }
+  });
+
+  const newVersionNumber = (latestVersion?.versionNumber ?? 0) + 1;
+
+  // Mark all previous as not latest
+  await prisma.documentVersion.updateMany({
+    where: { documentId },
+    data: { isLatest: false }
+  });
+
+  // Create new version
+  const version = await prisma.documentVersion.create({
+    data: {
+      documentId,
+      versionNumber: newVersionNumber,
+      fileName,
+      filePath,
+      fileSize,
+      mimeType,
+      changeNote,
+      checksum,
+      changedBy: req.adminId,
+      isLatest: true
+    }
+  });
+
+  // Update document's version number
+  await prisma.document.update({
+    where: { id: documentId },
+    data: { version: newVersionNumber }
+  });
+
+  res.status(201).json(version);
+}));
+
+// Restore a previous version
+app.post('/api/documents/:documentId/versions/:versionId/restore', asyncHandler(async (req, res) => {
+  const { documentId, versionId } = req.params;
+
+  const oldVersion = await prisma.documentVersion.findUnique({ where: { id: versionId } });
+  if (!oldVersion) return res.status(404).json({ error: 'Version not found' });
+
+  // Create a new version with old version's content
+  const latestVersion = await prisma.documentVersion.findFirst({
+    where: { documentId },
+    orderBy: { versionNumber: 'desc' }
+  });
+
+  const newVersionNumber = (latestVersion?.versionNumber ?? 0) + 1;
+
+  await prisma.documentVersion.updateMany({
+    where: { documentId },
+    data: { isLatest: false }
+  });
+
+  const restoredVersion = await prisma.documentVersion.create({
+    data: {
+      documentId,
+      versionNumber: newVersionNumber,
+      fileName: oldVersion.fileName,
+      filePath: oldVersion.filePath,
+      fileSize: oldVersion.fileSize,
+      mimeType: oldVersion.mimeType,
+      changeNote: `Restored from version ${oldVersion.versionNumber}`,
+      checksum: oldVersion.checksum,
+      changedBy: req.adminId,
+      isLatest: true
+    }
+  });
+
+  await prisma.document.update({
+    where: { id: documentId },
+    data: { version: newVersionNumber }
+  });
+
+  res.status(201).json(restoredVersion);
+}));
+
+// ================================
+// TRUST ACCOUNT API
+// ================================
+
+// Get trust transactions for a matter
+app.get('/api/matters/:matterId/trust', asyncHandler(async (req, res) => {
+  const transactions = await prisma.trustTransaction.findMany({
+    where: { matterId: req.params.matterId },
+    orderBy: { createdAt: 'desc' }
+  });
+  res.json(transactions);
+}));
+
+// Record trust transaction
+app.post('/api/matters/:matterId/trust', asyncHandler(async (req, res) => {
+  const { type, amount, description, reference, isEarned } = req.body;
+  const matterId = req.params.matterId;
+
+  // Get current balance
+  const lastTransaction = await prisma.trustTransaction.findFirst({
+    where: { matterId },
+    orderBy: { createdAt: 'desc' }
+  });
+
+  const balanceBefore = lastTransaction?.balanceAfter ?? 0;
+  let balanceAfter = balanceBefore;
+
+  // Calculate new balance
+  if (['DEPOSIT', 'TRANSFER_IN', 'INTEREST'].includes(type)) {
+    balanceAfter = balanceBefore + amount;
+  } else if (['WITHDRAWAL', 'TRANSFER_OUT', 'REFUND_TO_CLIENT', 'FEE_EARNED'].includes(type)) {
+    balanceAfter = balanceBefore - amount;
+  }
+
+  const transaction = await prisma.trustTransaction.create({
+    data: {
+      matterId,
+      type,
+      amount,
+      description,
+      reference,
+      isEarned: isEarned ?? false,
+      earnedDate: isEarned ? new Date() : null,
+      balanceBefore,
+      balanceAfter,
+      createdBy: req.adminId
+    }
+  });
+
+  res.status(201).json(transaction);
+}));
+
+// Get trust balance summary
+app.get('/api/trust/summary', asyncHandler(async (req, res) => {
+  const transactions = await prisma.trustTransaction.findMany();
+
+  const matterBalances: Record<string, { total: number; earned: number; unearned: number }> = {};
+
+  transactions.forEach(t => {
+    if (!matterBalances[t.matterId]) {
+      matterBalances[t.matterId] = { total: 0, earned: 0, unearned: 0 };
+    }
+    const balance = matterBalances[t.matterId];
+    balance.total = t.balanceAfter;
+    if (t.isEarned) balance.earned += t.amount;
+    else balance.unearned = t.balanceAfter;
+  });
+
+  const totalTrust = Object.values(matterBalances).reduce((sum, b) => sum + b.total, 0);
+  const totalEarned = Object.values(matterBalances).reduce((sum, b) => sum + b.earned, 0);
+
+  res.json({ totalTrust, totalEarned, matterBalances });
+}));
+
+// Create trust replenishment request
+app.post('/api/trust-requests', asyncHandler(async (req, res) => {
+  const { matterId, clientId, requestedAmount, currentBalance, minimumRequired, notes } = req.body;
+
+  const request = await prisma.trustRequest.create({
+    data: {
+      matterId,
+      clientId,
+      requestedAmount,
+      currentBalance,
+      minimumRequired,
+      notes,
+      createdBy: req.adminId
+    }
+  });
+  res.status(201).json(request);
+}));
+
+// Get trust requests
+app.get('/api/trust-requests', asyncHandler(async (req, res) => {
+  const requests = await prisma.trustRequest.findMany({
+    orderBy: { createdAt: 'desc' }
+  });
+  res.json(requests);
+}));
+
+// ================================
+
 if (!fs.existsSync('logs')) {
   fs.mkdirSync('logs', { recursive: true });
 }
