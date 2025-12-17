@@ -4589,7 +4589,8 @@ const startServer = () => {
     app.use(express.static(distPath));
 
     // SPA fallback - serve index.html for all non-API routes
-    app.get('*', (req, res, next) => {
+    // Express 5 uses new path-to-regexp syntax: {*splat} instead of *
+    app.get('/{*splat}', (req, res, next) => {
       if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/')) {
         return next();
       }
