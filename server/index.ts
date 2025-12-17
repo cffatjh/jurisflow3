@@ -1,4 +1,8 @@
 // server/index.ts
+console.log('[SERVER] Starting server initialization...');
+console.log('[SERVER] NODE_ENV:', process.env.NODE_ENV);
+console.log('[SERVER] PORT:', process.env.PORT);
+
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -4572,14 +4576,16 @@ const runDbMigrations = async () => {
   }
 };
 
-// Start server
-runDbMigrations().then(() => {
+// Start server immediately (don't wait for migrations)
+const startServer = () => {
+  console.log('[SERVER] Starting server...');
   const HOST = '0.0.0.0';
+  const port = Number(process.env.PORT) || 3001;
 
   // Serve static files in production (Vite build output)
   if (process.env.NODE_ENV === 'production') {
     const distPath = path.join(process.cwd(), 'dist');
-    console.log('Serving static files from:', distPath);
+    console.log('[SERVER] Serving static files from:', distPath);
     app.use(express.static(distPath));
 
     // SPA fallback - serve index.html for all non-API routes
@@ -4591,14 +4597,28 @@ runDbMigrations().then(() => {
     });
   }
 
-  app.listen(Number(PORT), HOST, () => {
-    console.log(`Server running on http://${HOST}:${PORT}`);
-    logger.info(`Server running on http://${HOST}:${PORT}`);
-    logger.info(`Frontend should be running on http://localhost:3000`);
+  app.listen(port, HOST, () => {
+    console.log(`[SERVER] Server running on http://${HOST}:${port}`);
+    logger.info(`Server running on http://${HOST}:${port}`);
+
+    // Run migrations in background (non-blocking)
+    if (process.env.NODE_ENV === 'production' && process.env.DATABASE_URL) {
+      console.log('[SERVER] Running prisma db push in background...');
+      import('child_process').then(({ exec }) => {
+        exec('npx prisma db push --skip-generate --accept-data-loss', (error, stdout, stderr) => {
+          if (error) {
+            console.error('[SERVER] Migration error:', error.message);
+          } else {
+            console.log('[SERVER] Migration completed:', stdout);
+          }
+        });
+      }).catch(err => console.error('[SERVER] Failed to import child_process:', err));
+    }
 
     // Start notification loop AFTER server is listening
     startNotificationLoop();
   });
-}).catch(err => {
-  console.error('Failed to start server:', err);
-});
+};
+
+console.log('[SERVER] Calling startServer()...');
+startServer();
