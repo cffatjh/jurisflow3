@@ -4588,12 +4588,17 @@ const startServer = () => {
     console.log('[SERVER] Serving static files from:', distPath);
     app.use(express.static(distPath));
 
-    // SPA fallback - serve index.html for all non-API routes
-    // Express 5 uses new path-to-regexp syntax: {*splat} instead of *
-    app.get('/{*splat}', (req, res, next) => {
+    // SPA fallback middleware - serve index.html for all non-API routes
+    app.use((req, res, next) => {
+      // Skip API and upload routes
       if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/')) {
         return next();
       }
+      // Only handle GET requests for SPA fallback
+      if (req.method !== 'GET') {
+        return next();
+      }
+      // Serve index.html for all other routes (SPA routing)
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
