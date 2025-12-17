@@ -103,6 +103,8 @@ model Task {
   assignedEmployee   Employee? @relation("EmployeeTasks", fields: [assignedEmployeeId], references: [id])
 
   completedAt DateTime?
+  userId      String?   // Data Isolation için
+  reminderSent Boolean  @default(false) // Bildirim gönderildi mi?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
@@ -136,6 +138,7 @@ model TimeEntry {
   date        DateTime
   billed      Boolean   @default(false)
   type        String    // time
+  userId      String?   // Data Isolation için
 }
 
 // ------------------------------
@@ -151,6 +154,7 @@ model Expense {
   category    String
   billed      Boolean   @default(false)
   type        String    // expense
+  userId      String?   // Data Isolation için
 }
 
 // ------------------------------
@@ -175,6 +179,9 @@ model CalendarEvent {
   type     String    // Meeting | Court | Deadline
   matterId String?
   matter   Matter?   @relation(fields: [matterId], references: [id])
+  userId   String?   // Data Isolation için
+  reminderMinutes Int? // Kaç dakika önce hatırlatılacak
+  reminderSent Boolean @default(false) // Bildirim gönderildi mi?
 }
 
 // ------------------------------

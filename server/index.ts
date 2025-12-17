@@ -20,9 +20,39 @@ declare global {
     interface Request {
       adminId?: string;
       clientId?: string;
+      user?: any;
     }
   }
 }
+
+const verifyToken = (req: any, res: any, next: any) => {
+  // Whitelist public endpoints
+  if (
+    req.path === '/api/login' ||
+    req.path === '/api/client/login' ||
+    req.path.startsWith('/uploads') ||
+    req.path.startsWith('/api/auth/')
+  ) {
+    return next();
+  }
+
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    // Allow public access to some GETs if needed, or fail. 
+    // For now, let's enforce auth for API routes except whitelist.
+    // But to avoid breaking existing public pages if any, be careful.
+    // Assuming app is fully protected.
+    return res.status(401).json({ message: 'No token provided' });
+  }
+
+  jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
+    if (err) return res.status(403).json({ message: 'Invalid token' });
+    req.user = user;
+    next();
+  });
+};
 
 const app = express();
 const prisma = new PrismaClient();
@@ -189,6 +219,9 @@ app.use('/uploads', express.static(uploadsDir));
 
 // Audit logging middleware
 app.use(auditLog);
+
+// Auth Middleware - Protects all API routes below
+app.use('/api', verifyToken);
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'cffatjh@gmail.com';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '4354e643a83C9';
@@ -825,8 +858,17 @@ app.delete('/api/matters/:id', async (req, res) => {
 app.get('/api/tasks', async (req, res) => {
   try {
     const { matterId } = req.query;
+    const user = req.user;
+
+    const whereClause: any = matterId ? { matterId: matterId as string } : {};
+
+    // Data Isolation: If not admin, only show own tasks
+    if (user && user.role !== 'Admin' && user.id) {
+      whereClause.userId = user.id;
+    }
+
     const tasks = await prisma.task.findMany({
-      where: matterId ? { matterId: matterId as string } : undefined,
+      where: whereClause,
       orderBy: { createdAt: 'desc' },
     });
     res.json(tasks);
@@ -850,6 +892,7 @@ app.post('/api/tasks', async (req, res) => {
         matterId: data.matterId ?? null,
         assignedTo: data.assignedTo ?? null,
         templateId: data.templateId ?? null,
+        userId: req.user?.id || null, // Set owner
       },
     });
     res.status(201).json(created);
@@ -1050,7 +1093,13 @@ app.post('/api/tasks/from-template', async (req, res) => {
 // ===================== TIME ENTRIES =====================
 app.get('/api/time-entries', async (req, res) => {
   try {
-    const entries = await prisma.timeEntry.findMany();
+    const user = req.user;
+    const where: any = {};
+    if (user && user.role !== 'Admin' && user.id) {
+      where.userId = user.id;
+    }
+
+    const entries = await prisma.timeEntry.findMany({ where, orderBy: { date: 'desc' } });
     res.json(entries);
   } catch (err) {
     console.error('Error fetching time entries:', err);
@@ -1070,6 +1119,7 @@ app.post('/api/time-entries', async (req, res) => {
         date: data.date ? new Date(data.date) : new Date(),
         billed: data.billed ?? false,
         type: data.type ?? 'time',
+        userId: req.user?.id || null, // Set owner
       },
     });
     res.status(201).json(created);
@@ -1204,7 +1254,16 @@ app.delete('/api/leads/:id', async (req, res) => {
 // ===================== EVENTS =====================
 app.get('/api/events', async (req, res) => {
   try {
-    const events = await prisma.calendarEvent.findMany();
+    const user = req.user;
+    const where: any = {};
+    if (user && user.role !== 'Admin' && user.id) {
+      where.userId = user.id;
+    }
+
+    const events = await prisma.calendarEvent.findMany({
+      where,
+      orderBy: { date: 'asc' }
+    });
     res.json(events);
   } catch (err) {
     console.error('Error fetching events:', err);
@@ -1221,6 +1280,7 @@ app.post('/api/events', async (req, res) => {
         date: data.date ? new Date(data.date) : new Date(),
         type: data.type,
         matterId: data.matterId ?? null,
+        userId: req.user?.id || null, // Set owner
       },
     });
     res.status(201).json(created);
@@ -1246,7 +1306,14 @@ app.delete('/api/events/:id', async (req, res) => {
 // ===================== EXPENSES =====================
 app.get('/api/expenses', async (req, res) => {
   try {
+    const user = req.user;
+    const where: any = {};
+    if (user && user.role !== 'Admin' && user.id) {
+      where.userId = user.id;
+    }
+
     const expenses = await prisma.expense.findMany({
+      where,
       include: { matter: true },
       orderBy: { date: 'desc' }
     });
@@ -1269,6 +1336,7 @@ app.post('/api/expenses', async (req, res) => {
         date: data.date ? new Date(data.date) : new Date(),
         billed: data.billed || false,
         type: data.type ?? 'expense',
+        userId: req.user?.id || null, // Set owner
       },
       include: { matter: true }
     });
@@ -4237,6 +4305,233 @@ app.get('/api/trust-requests', asyncHandler(async (req, res) => {
   });
   res.json(requests);
 }));
+
+// ===================== EMPLOYEES =====================
+app.get('/api/employees', asyncHandler(async (req, res) => {
+  const employees = await prisma.employee.findMany({ orderBy: { createdAt: 'desc' }, include: { user: true } });
+  res.json(employees);
+}));
+
+app.get('/api/employees/:id', asyncHandler(async (req, res) => {
+  const employee = await prisma.employee.findUnique({ where: { id: req.params.id }, include: { user: true } });
+  if (!employee) return res.status(404).json({ message: 'Çalışan bulunamadı' });
+  res.json(employee);
+}));
+
+app.post('/api/employees', asyncHandler(async (req, res) => {
+  const { firstName, lastName, email, role, phone, hourlyRate, salary, hireDate } = req.body;
+
+  // Check email
+  const existing = await prisma.user.findUnique({ where: { email } });
+  if (existing) return res.status(400).json({ message: 'Bu e-posta adresi kullanımda.' });
+
+  // Create User account first (Default password: email prefix + 123)
+  const defaultPassword = email.split('@')[0] + '123';
+  const passwordHash = await bcrypt.hash(defaultPassword, 10);
+
+  const userRole = role === 'PARALEGAL' || role === 'INTERN_LAWYER' ? 'Employee' : 'Associate';
+
+  const user = await prisma.user.create({
+    data: {
+      email,
+      name: `${firstName} ${lastName}`,
+      role: userRole,
+      employeeRole: role,
+      passwordHash,
+      phone
+    }
+  });
+
+  const employee = await prisma.employee.create({
+    data: {
+      firstName,
+      lastName,
+      email,
+      role,
+      phone,
+      hourlyRate: hourlyRate ? parseFloat(hourlyRate) : null,
+      salary: salary ? parseFloat(salary) : null,
+      hireDate: hireDate ? new Date(hireDate) : new Date(),
+      userId: user.id
+    }
+  });
+
+  res.status(201).json(employee);
+}));
+
+app.put('/api/employees/:id', asyncHandler(async (req, res) => {
+  const { firstName, lastName, phone, hourlyRate, salary, status } = req.body;
+  const employee = await prisma.employee.update({
+    where: { id: req.params.id },
+    data: {
+      firstName,
+      lastName,
+      phone,
+      hourlyRate: hourlyRate ? parseFloat(hourlyRate) : undefined,
+      salary: salary ? parseFloat(salary) : undefined,
+      status
+    }
+  });
+
+  if (employee.userId) {
+    await prisma.user.update({
+      where: { id: employee.userId },
+      data: { name: `${firstName} ${lastName}` }
+    });
+  }
+
+  res.json(employee);
+}));
+
+app.delete('/api/employees/:id', asyncHandler(async (req, res) => {
+  const employee = await prisma.employee.findUnique({ where: { id: req.params.id } });
+  if (employee && employee.userId) {
+    try { await prisma.user.delete({ where: { id: employee.userId } }); } catch (e) { }
+  }
+  await prisma.employee.delete({ where: { id: req.params.id } });
+  res.json({ success: true });
+}));
+
+app.post('/api/employees/:id/reset-password', asyncHandler(async (req, res) => {
+  const employee = await prisma.employee.findUnique({ where: { id: req.params.id } });
+  if (!employee || !employee.email) return res.status(404).json({ message: 'Çalışan veya email bulunamadı' });
+
+  const newPassword = employee.email.split('@')[0] + '123';
+  const passwordHash = await bcrypt.hash(newPassword, 10);
+
+  if (employee.userId) {
+    await prisma.user.update({
+      where: { id: employee.userId },
+      data: { passwordHash }
+    });
+  }
+
+  res.json({ message: 'Şifre sıfırlandı', tempPassword: newPassword });
+}));
+
+app.post('/api/employees/:id/assign-task', asyncHandler(async (req, res) => {
+  const { taskId } = req.body;
+  await prisma.task.update({
+    where: { id: taskId },
+    data: { assignedEmployeeId: req.params.id }
+  });
+  res.json({ success: true });
+}));
+
+// ===================== NOTIFICATIONS =====================
+app.get('/api/notifications', asyncHandler(async (req, res) => {
+  const user = req.user;
+  if (!user) return res.status(401).json({ message: 'Unauthorized' });
+
+  const notifications = await prisma.notification.findMany({
+    where: { userId: user.id },
+    orderBy: { createdAt: 'desc' },
+    take: 50
+  });
+  res.json(notifications);
+}));
+
+app.put('/api/notifications/:id/read', asyncHandler(async (req, res) => {
+  await prisma.notification.update({
+    where: { id: req.params.id },
+    data: { read: true }
+  });
+  res.json({ success: true });
+}));
+
+app.put('/api/notifications/read-all', asyncHandler(async (req, res) => {
+  const user = req.user;
+  if (!user) return res.status(401).json({ message: 'Unauthorized' });
+
+  await prisma.notification.updateMany({
+    where: { userId: user.id, read: false },
+    data: { read: true }
+  });
+  res.json({ success: true });
+}));
+
+// ===================== NOTIFICATION LOOP =====================
+const startNotificationLoop = () => {
+  setInterval(async () => {
+    try {
+      const now = new Date();
+      // 1. Calendar Events (15 mins before)
+      const upcomingEvents = await prisma.calendarEvent.findMany({
+        where: {
+          reminderSent: false,
+          date: {
+            gt: now,
+            lte: new Date(now.getTime() + 15 * 60 * 1000)
+          }
+        },
+        include: { matter: true }
+      });
+
+      for (const event of upcomingEvents) {
+        const targetUserId = event.userId;
+        if (targetUserId) {
+          await prisma.notification.create({
+            data: {
+              userId: targetUserId,
+              title: 'Yaklaşan Etkinlik',
+              message: `${event.title} 15 dakika içinde başlayacak.`,
+              type: 'info',
+              link: '/calendar',
+              createdAt: new Date()
+            }
+          });
+
+          await prisma.calendarEvent.update({
+            where: { id: event.id },
+            data: { reminderSent: true }
+          });
+        }
+      }
+
+      // 2. Tasks (Due within 24 hours) - Run rarely? Or use a flag.
+      const upcomingTasks = await prisma.task.findMany({
+        where: {
+          reminderSent: false,
+          dueDate: {
+            gt: now,
+            lte: new Date(now.getTime() + 24 * 60 * 60 * 1000) // 24 hours
+          },
+          status: { not: 'Done' }
+        }
+      });
+
+      for (const task of upcomingTasks) {
+        let notifyUserId = task.userId;
+        if (task.assignedEmployeeId) {
+          const emp = await prisma.employee.findUnique({ where: { id: task.assignedEmployeeId } });
+          if (emp && emp.userId) notifyUserId = emp.userId;
+        }
+
+        if (notifyUserId) {
+          await prisma.notification.create({
+            data: {
+              userId: notifyUserId,
+              title: 'Son Tarih Yaklaşıyor',
+              message: `Görev: ${task.title} için son tarih yarın.`,
+              type: 'warning',
+              link: `/tasks`,
+              createdAt: new Date()
+            }
+          });
+          await prisma.task.update({
+            where: { id: task.id },
+            data: { reminderSent: true }
+          });
+        }
+      }
+
+    } catch (e) {
+      console.error("Notification Loop Error:", e);
+    }
+  }, 60 * 1000); // Every 1 minute
+};
+
+startNotificationLoop();
 
 // ================================
 

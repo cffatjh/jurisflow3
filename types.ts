@@ -520,3 +520,11 @@ export interface CalculatedDeadline {
   notes?: string;
   createdAt: string;
 }
+
+export interface ActiveTimer {
+  startTime: number; // timestamp
+  matterId?: string;
+  description: string;
+  isRunning: boolean;
+  elapsed: number; // saved elapsed time if paused
+}

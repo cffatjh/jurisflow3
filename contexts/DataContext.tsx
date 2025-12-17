@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Matter, Client, TimeEntry, Message, Expense, CalendarEvent, DocumentFile, Invoice, Lead, Task, TaskStatus, PracticeArea, FeeStructure, CaseStatus, Notification as AppNotification, TaskTemplate } from '../types';
+import { Matter, Client, TimeEntry, Message, Expense, CalendarEvent, DocumentFile, Invoice, Lead, Task, TaskStatus, PracticeArea, FeeStructure, CaseStatus, Notification as AppNotification, TaskTemplate, ActiveTimer } from '../types';
 import { api } from '../services/api';
 import { useAuth } from './AuthContext';
 
@@ -53,6 +53,14 @@ interface DataContextType {
   taskTemplates: TaskTemplate[];
   notifications: AppNotification[];
 
+  // Timer Actions
+  activeTimer: ActiveTimer | null;
+  startTimer: (matterId: string | undefined, description: string) => void;
+  stopTimer: () => Promise<void>;
+  updateTimer: (elapsed: number) => void;
+  pauseTimer: () => void;
+  resumeTimer: () => void;
+
   addMatter: (item: any) => Promise<void>;
   updateMatter: (id: string, data: Partial<Matter>) => Promise<void>;
   deleteMatter: (id: string) => Promise<void>;
@@ -89,11 +97,18 @@ interface DataContextType {
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export const DataProvider = ({ children }: { children: ReactNode }) => {
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/468b8283-de18-4f31-b7cb-52da7f0bb927', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'DataContext.tsx:79', message: 'DataProvider initialization started', data: {}, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'C' }) }).catch(() => { });
-  // #endregion
   const { isAuthenticated } = useAuth();
+
   // --- STATE ---
+  const [activeTimer, setActiveTimer] = useState<ActiveTimer | null>(() => {
+    // Load from local storage on init
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('jf_active_timer');
+      return saved ? JSON.parse(saved) : null;
+    }
+    return null;
+  });
+
   const [matters, setMatters] = useState<Matter[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
@@ -110,6 +125,78 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     { id: 'msg1', from: 'Jessica Pearson', subject: 'Managing Partner Meeting', preview: 'We need to discuss the new associates...', date: '09:00 AM', read: false }
   ]);
   const [documents, setDocuments] = useState<DocumentFile[]>([]);
+
+  // Timer Persistence
+  useEffect(() => {
+    if (activeTimer) {
+      localStorage.setItem('jf_active_timer', JSON.stringify(activeTimer));
+    } else {
+      localStorage.removeItem('jf_active_timer');
+    }
+  }, [activeTimer]);
+
+  const startTimer = (matterId: string | undefined, description: string) => {
+    const newTimer: ActiveTimer = {
+      startTime: Date.now(),
+      matterId,
+      description,
+      isRunning: true,
+      elapsed: 0
+    };
+    setActiveTimer(newTimer);
+  };
+
+  const pauseTimer = () => {
+    if (activeTimer && activeTimer.isRunning) {
+      const now = Date.now();
+      const additional = now - activeTimer.startTime;
+      setActiveTimer({
+        ...activeTimer,
+        isRunning: false,
+        elapsed: activeTimer.elapsed + additional
+      });
+    }
+  };
+
+  const resumeTimer = () => {
+    if (activeTimer && !activeTimer.isRunning) {
+      setActiveTimer({
+        ...activeTimer,
+        isRunning: true,
+        startTime: Date.now()
+      });
+    }
+  };
+
+  const updateTimer = (elapsed: number) => {
+    // This is mostly for UI sync if needed, but the real truth is calculated
+  };
+
+  const stopTimer = async () => {
+    if (!activeTimer) return;
+
+    // Calculate total duration
+    let totalDurationMs = activeTimer.elapsed;
+    if (activeTimer.isRunning) {
+      totalDurationMs += (Date.now() - activeTimer.startTime);
+    }
+
+    // Convert to minutes (minimum 1 minute?)
+    const minutes = Math.ceil(totalDurationMs / 1000 / 60);
+
+    // Create Time Entry
+    await addTimeEntry({
+      matterId: activeTimer.matterId,
+      description: activeTimer.description,
+      duration: minutes,
+      date: new Date().toISOString(),
+      rate: 0, // Should fetch rate from matter/user
+      billed: false,
+      type: 'time'
+    });
+
+    setActiveTimer(null);
+  };
 
   const parseDocTags = (raw: any): string[] | undefined => {
     if (!raw) return undefined;
@@ -155,26 +242,14 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
   // --- INITIAL LOAD ---
   useEffect(() => {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/468b8283-de18-4f31-b7cb-52da7f0bb927', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'DataContext.tsx:98', message: 'DataProvider useEffect started - about to load data', data: {}, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'C' }) }).catch(() => { });
-    // #endregion
     const loadData = async () => {
       try {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/468b8283-de18-4f31-b7cb-52da7f0bb927', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'DataContext.tsx:101', message: 'DataProvider API fetch started', data: {}, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'C' }) }).catch(() => { });
-        // #endregion
         // Try Fetching from real API
         // Check if user is authenticated before making API calls
         const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/468b8283-de18-4f31-b7cb-52da7f0bb927', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'DataContext.tsx:115', message: 'About to make parallel API calls', data: { hasToken: !!token, apiCallCount: 9 }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'C' }) }).catch(() => { });
-        // #endregion
 
         // Only make API calls if user is authenticated
         if (!token || !isAuthenticated) {
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/468b8283-de18-4f31-b7cb-52da7f0bb927', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'DataContext.tsx:120', message: 'No token or not authenticated - skipping API calls, using mock data', data: { hasToken: !!token, isAuthenticated }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'D' }) }).catch(() => { });
-          // #endregion
           // Use mock data if not authenticated
           setMatters(MOCK_MATTERS);
           setClients(MOCK_CLIENTS);
@@ -200,9 +275,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
           api.getDocuments().catch(() => []),
           api.getTaskTemplates().catch(() => [])
         ]);
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/468b8283-de18-4f31-b7cb-52da7f0bb927', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'DataContext.tsx:128', message: 'Parallel API calls completed', data: { mattersCount: m?.length || 0, tasksCount: t?.length || 0 }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'C' }) }).catch(() => { });
-        // #endregion
+
         setMatters(m);
         setTasks(t);
         setTimeEntries(te);
@@ -214,14 +287,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         setNotifications(n || []);
         setDocuments((docs || []).map(normalizeDocument));
         setTaskTemplates(templates || []);
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/468b8283-de18-4f31-b7cb-52da7f0bb927', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'DataContext.tsx:120', message: 'DataProvider API fetch succeeded', data: { mattersCount: m.length, tasksCount: t.length }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'C' }) }).catch(() => { });
-        // #endregion
         console.log("✅ Data loaded successfully from Supabase via API");
       } catch (error) {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/468b8283-de18-4f31-b7cb-52da7f0bb927', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'DataContext.tsx:123', message: 'DataProvider API fetch failed - using mock data', data: { errorMessage: error instanceof Error ? error.message : String(error), errorStack: error instanceof Error ? error.stack : undefined }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'C' }) }).catch(() => { });
-        // #endregion
         console.warn("⚠️ Failed to load data from backend. Falling back to Mock Data.", error);
         // Fallback to MOCK DATA so app is usable
         setMatters(MOCK_MATTERS);
@@ -234,6 +301,27 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       }
     };
     loadData();
+  }, [isAuthenticated]);
+
+  // --- NOTIFICATION POLLING ---
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const fetchNotifications = async () => {
+      try {
+        const notifs = await api.getNotifications();
+        if (notifs) setNotifications(notifs);
+      } catch (e) {
+        // console.error("Notification Poll Error", e); // Silent fail
+      }
+    };
+
+    // Initial fetch
+    fetchNotifications();
+
+    // Poll every 60 seconds
+    const interval = setInterval(fetchNotifications, 60000);
+    return () => clearInterval(interval);
   }, [isAuthenticated]);
 
   // --- EVENT REMINDER SYSTEM ---
@@ -320,7 +408,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       setClients(freshClients);
     } catch (e) {
       console.error("API Error (addMatter) - operating offline", e);
-      // Keep optimistic or revert? For demo, we keep optimistic but maybe update ID
     }
   };
 
@@ -570,12 +657,10 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/468b8283-de18-4f31-b7cb-52da7f0bb927', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'DataContext.tsx:309', message: 'DataProvider returning JSX', data: { mattersCount: matters.length, clientsCount: clients.length }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'C' }) }).catch(() => { });
-  // #endregion
   return (
     <DataContext.Provider value={{
       matters, clients, timeEntries, expenses, messages, events, documents, invoices, leads, tasks, taskTemplates, notifications,
+      activeTimer, startTimer, stopTimer, updateTimer, pauseTimer, resumeTimer,
       addMatter, updateMatter, deleteMatter,
       addTimeEntry, addExpense, addMessage, markMessageRead, addEvent, deleteEvent, addDocument, updateDocument, deleteDocument, addInvoice, updateInvoice, deleteInvoice, addClient, addLead, updateLead, deleteLead, addTask,
       updateTaskStatus, updateTask, deleteTask, archiveTask, createTasksFromTemplate, markAsBilled, markNotificationRead, markNotificationUnread, markAllNotificationsRead, updateUserProfile,
