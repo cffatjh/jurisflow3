@@ -302,30 +302,36 @@ const ensureTestAccounts = async () => {
     ];
 
     for (const admin of jfAdmins) {
-      const existing = await prisma.user.findUnique({ where: { email: admin.email } });
-      const passwordHash = await bcrypt.hash(admin.password, 10);
+      try {
+        const existing = await prisma.user.findUnique({ where: { email: admin.email } });
+        const passwordHash = await bcrypt.hash(admin.password, 10);
 
-      if (existing) {
-        await prisma.user.update({
-          where: { email: admin.email },
-          data: { passwordHash, role: 'Admin', name: admin.name }
-        });
-      } else {
-        await prisma.user.create({
-          data: {
-            email: admin.email,
-            name: admin.name,
-            role: 'Admin',
-            passwordHash
-          }
-        });
+        if (existing) {
+          await prisma.user.update({
+            where: { email: admin.email },
+            data: { passwordHash, role: 'Admin', name: admin.name }
+          });
+          console.log(`✅ JF Admin updated: ${admin.email}`);
+        } else {
+          await prisma.user.create({
+            data: {
+              email: admin.email,
+              name: admin.name,
+              role: 'Admin',
+              passwordHash
+            }
+          });
+          console.log(`✅ JF Admin created: ${admin.email}`);
+        }
+      } catch (adminErr) {
+        console.error(`❌ Failed to create/update JF Admin ${admin.email}:`, adminErr);
       }
     }
   } catch (err) {
-    // Silently ignore errors
+    console.error('❌ ensureTestAccounts error:', err);
   }
 };
-ensureTestAccounts().catch(() => { });
+ensureTestAccounts().catch((err) => console.error('❌ ensureTestAccounts failed:', err));
 
 // Ensure a test attorney account exists (Partner role - NOT Admin)
 const ensureTestAttorney = async () => {
