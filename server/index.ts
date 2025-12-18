@@ -263,7 +263,7 @@ const ensureAdmin = async () => {
     console.error('❌ Failed to ensure admin:', err);
   }
 };
-ensureAdmin().catch((err) => console.error('❌ ensureAdmin error:', err));
+// NOTE: ensureAdmin is called from startServer() after server starts listening
 
 // Ensure test accounts exist (silently)
 const ensureTestAccounts = async () => {
@@ -385,7 +385,7 @@ const ensureTestAccounts = async () => {
     console.error('❌ ensureTestAccounts error:', err);
   }
 };
-ensureTestAccounts().catch((err) => console.error('❌ ensureTestAccounts failed:', err));
+// NOTE: ensureTestAccounts is called from startServer() after server starts listening
 
 // Ensure a test attorney account exists (Partner role - NOT Admin)
 const ensureTestAttorney = async () => {
@@ -424,7 +424,7 @@ const ensureTestAttorney = async () => {
     }
   }
 };
-ensureTestAttorney().catch((err) => console.error('❌ ensureTestAttorney failed:', err));
+// NOTE: ensureTestAttorney is called from startServer() after server starts listening
 
 // ===================== HEALTH CHECK =====================
 // Required for Railway/production health monitoring
@@ -4623,6 +4623,13 @@ const startServer = () => {
 
     // Start notification loop AFTER server is listening
     startNotificationLoop();
+
+    // Initialize admin and test accounts in background (non-blocking)
+    // These run after server is listening so healthcheck can respond
+    console.log('[SERVER] Initializing admin and test accounts in background...');
+    ensureAdmin().catch((err) => console.error('❌ ensureAdmin error:', err));
+    ensureTestAccounts().catch((err) => console.error('❌ ensureTestAccounts failed:', err));
+    ensureTestAttorney().catch((err) => console.error('❌ ensureTestAttorney failed:', err));
   });
 };
 
