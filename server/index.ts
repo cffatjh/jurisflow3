@@ -31,14 +31,14 @@ declare global {
 
 const verifyToken = (req: any, res: any, next: any) => {
   // Whitelist public endpoints
+  // Note: When mounted at '/api', req.path is relative (e.g., '/health' not '/api/health')
   if (
-    req.path === '/api/login' ||
-    req.path === '/api/client/login' ||
-    req.path === '/api/health' ||
-    req.path.startsWith('/uploads') ||
-    req.path.startsWith('/api/auth/') ||
-    req.path.startsWith('/api/client/') ||
-    req.path.startsWith('/api/public/')
+    req.path === '/login' ||
+    req.path === '/client/login' ||
+    req.path === '/health' ||
+    req.path.startsWith('/auth/') ||
+    req.path.startsWith('/client/') ||
+    req.path.startsWith('/public/')
   ) {
     return next();
   }
