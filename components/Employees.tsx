@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Users, Plus, Edit, Trash2, Mail, Phone, Calendar, Clock, CheckSquare, RefreshCw } from './Icons';
 import { Can } from './common/Can';
 import { ConfirmDialog } from './common/ConfirmDialog';
+import { CredentialModal } from './common/CredentialModal';
+
 import { toast } from './Toast';
 import { Employee, EmployeeRole, EmployeeStatus } from '../types';
 import { api } from '../services/api';
@@ -18,6 +20,10 @@ const Employees: React.FC = () => {
     // Delete Confirmation State
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
     const [employeeToDelete, setEmployeeToDelete] = useState<string | null>(null);
+
+    // Credential Modal State
+    const [credentialModalOpen, setCredentialModalOpen] = useState(false);
+    const [createdCredential, setCreatedCredential] = useState<{ email: string; pass?: string; role: string } | null>(null);
 
     const [formData, setFormData] = useState({
         firstName: '',
@@ -98,9 +104,15 @@ const Employees: React.FC = () => {
                 };
                 const res = await api.createEmployee(createData);
                 if (res && res.tempPassword) {
-                    alert(`Çalışan başarıyla oluşturuldu.\n\nGEÇİCİ ŞİFRE: ${res.tempPassword}\n\nLütfen bu şifreyi çalışanla paylaşın. Bu şifre tekrar görüntülenemez.`);
+                    setCreatedCredential({
+                        email: res.email,
+                        pass: res.tempPassword,
+                        role: roleLabels[res.role as EmployeeRole]
+                    });
+                    setCredentialModalOpen(true);
+                } else {
+                    toast.success('Çalışan başarıyla eklendi.');
                 }
-                toast.success('Çalışan başarıyla eklendi.');
             }
             setShowForm(false);
             setEditingEmployee(null);
@@ -137,7 +149,15 @@ const Employees: React.FC = () => {
         try {
             const result = await api.resetEmployeePassword(id);
             if (result?.tempPassword) {
-                alert(`Geçici şifre: ${result.tempPassword}\nBu şifreyi çalışanla paylaşın.`);
+                const emp = employees.find(e => e.id === id);
+                if (emp) {
+                    setCreatedCredential({
+                        email: emp.email,
+                        pass: result.tempPassword,
+                        role: roleLabels[emp.role]
+                    });
+                    setCredentialModalOpen(true);
+                }
             }
         } catch (error) {
             console.error('Error resetting password:', error);
@@ -492,6 +512,16 @@ const Employees: React.FC = () => {
                 onConfirm={handleConfirmDelete}
                 onCancel={() => setDeleteConfirmOpen(false)}
             />
+
+            {createdCredential && (
+                <CredentialModal
+                    isOpen={credentialModalOpen}
+                    onClose={() => setCredentialModalOpen(false)}
+                    email={createdCredential.email}
+                    tempPassword={createdCredential.pass}
+                    role={createdCredential.role}
+                />
+            )}
         </div>
     );
 };

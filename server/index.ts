@@ -3680,9 +3680,23 @@ app.post('/api/employees', checkPermission('user.manage'), asyncHandler(async (r
         }
       } catch (userErr: any) {
         if (userErr.code === 'P2002') {
-          // User already exists, maybe link it?
+          // User already exists. Link it and UPDATE attributes (password/role)
           const existing = await prisma.user.findUnique({ where: { email: data.email } });
-          if (existing) userId = existing.id;
+          if (existing) {
+            userId = existing.id;
+            // Update the existing user with new role/password if generated
+            await prisma.user.update({
+              where: { id: existing.id },
+              data: {
+                passwordHash, // Update to the new password hash (whether provided or generated)
+                employeeRole: data.role, // Update role matches new employee
+                role: 'Employee'
+              }
+            });
+            if (!data.password) {
+              tempPassword = rawPassword; // Ensure we return the password that is now active
+            }
+          }
         } else {
           console.error('Failed to create user account for employee:', userErr);
         }
