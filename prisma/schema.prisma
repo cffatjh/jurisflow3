@@ -58,7 +58,12 @@ model Matter {
   caseNumber          String
   name                String
   practiceArea        String
-  courtType           String?       // e.g. High Criminal, Family, etc.
+  courtType           String?
+  // Bail / Kefalet
+  bailStatus          String?   // 'None', 'Set', 'Posted', 'Forfeited', 'Exonerated', 'Returned'
+  bailAmount          Float?
+  outcome             String?   // 'Dismissed', 'Convicted', 'Acquitted', 'Settled'
+       // e.g. High Criminal, Family, etc.
   status              String        // Open | Closed
   feeStructure        String        // Hourly | Fixed
   openDate            DateTime      @default(now())

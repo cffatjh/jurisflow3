@@ -11,6 +11,7 @@ const TimeTracker = () => {
     const { matters, addTimeEntry, addExpense, timeEntries, expenses, activeTimer, startTimer, stopTimer, pauseTimer, resumeTimer } = useData();
 
     const [activeTab, setActiveTab] = useState<'time' | 'expense'>('time');
+    const [showBilled, setShowBilled] = useState(false);
 
     // Display-only state (synced with activeTimer)
     const [timerDisplay, setTimerDisplay] = useState(0);
@@ -178,7 +179,9 @@ const TimeTracker = () => {
     const allEntries = [
         ...timeEntries.map(x => ({ ...x, sortDate: new Date(x.date) })),
         ...expenses.map(x => ({ ...x, sortDate: new Date(x.date) }))
-    ].sort((a, b) => b.sortDate.getTime() - a.sortDate.getTime());
+    ]
+        .filter(entry => showBilled ? true : !entry.billed)
+        .sort((a, b) => b.sortDate.getTime() - a.sortDate.getTime());
 
     const isRunning = activeTimer?.isRunning || false;
     const hasActiveTimer = !!activeTimer;
@@ -372,8 +375,19 @@ const TimeTracker = () => {
             <div className="flex-1 min-h-0 bg-gray-50 p-8 flex flex-col">
                 <div className="bg-white border border-gray-200 rounded-xl shadow-sm flex flex-col h-full overflow-hidden">
                     <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-                        <h3 className="font-bold text-slate-800">{t('recent_entries')}</h3>
-                        <span className="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded-full font-bold">{allEntries.length} Items</span>
+                        <div className="flex items-center gap-3">
+                            <h3 className="font-bold text-slate-800">{t('recent_entries')}</h3>
+                            <span className="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded-full font-bold">{allEntries.length} Items</span>
+                        </div>
+                        <label className="flex items-center gap-2 text-xs font-bold text-gray-500 cursor-pointer select-none">
+                            <input
+                                type="checkbox"
+                                checked={showBilled}
+                                onChange={e => setShowBilled(e.target.checked)}
+                                className="rounded border-gray-300 text-slate-900 focus:ring-slate-900"
+                            />
+                            Show Billed / Archived
+                        </label>
                     </div>
 
                     {/* SCROLLABLE TABLE CONTAINER */}

@@ -1,4 +1,6 @@
 import React, { useState, useMemo } from 'react';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import { FileText, Download, Calendar, DollarSign, Clock, Users, BarChart3, Filter } from './Icons';
 import { useTranslation } from '../contexts/LanguageContext';
@@ -191,52 +193,56 @@ const Reports: React.FC = () => {
         setIsExporting(false);
     };
 
-    // Export to PDF (calls server endpoint)
+    // Export to PDF (Client-side)
     const exportToPDF = async () => {
         setIsExporting(true);
         try {
-            const response = await fetch('/api/reports/export/pdf', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                },
-                body: JSON.stringify({
-                    reportType: activeReport,
-                    dateRange: {
-                        start: dateRange.start.toISOString(),
-                        end: dateRange.end.toISOString()
-                    },
-                    data: activeReport === 'performance' ? performanceData :
-                        activeReport === 'profitability' ? profitabilityData :
-                            activeReport === 'matters' ? matterStats : billingTrends
-                })
-            });
+            const element = document.getElementById('report-content');
+            if (!element) throw new Error('Report content not found');
 
-            if (response.ok) {
-                const blob = await response.blob();
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `${activeReport}_report_${new Date().toISOString().split('T')[0]}.pdf`;
-                a.click();
-                URL.revokeObjectURL(url);
-                toast.success('PDF exported successfully');
-            } else {
-                throw new Error('Export failed');
+            const canvas = await html2canvas(element, {
+                scale: 2,
+                logging: false,
+                useCORS: true,
+                backgroundColor: '#ffffff'
+            } as any);
+
+            const imgData = canvas.toDataURL('image/png');
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+            const imgWidth = pdfWidth;
+            const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+            let heightLeft = imgHeight;
+            let position = 0;
+
+            pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+            heightLeft -= pdfHeight;
+
+            while (heightLeft >= 0) {
+                position = heightLeft - imgHeight;
+                pdf.addPage();
+                pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                heightLeft -= pdfHeight;
             }
+
+            pdf.save(`report-${activeReport}-${new Date().toISOString().split('T')[0]}.pdf`);
+            toast.success(t('entry_saved') || 'Report exported successfully');
         } catch (error) {
-            toast.error('Failed to export PDF');
+            console.error('Error exporting PDF:', error);
+            toast.error(t('error_login') || 'Failed to export PDF');
+        } finally {
+            setIsExporting(false);
         }
-        setIsExporting(false);
     };
 
     const reportTabs = [
-        { id: 'performance', label: 'Attorney Performance', icon: BarChart3 },
-        { id: 'profitability', label: 'Client Profitability', icon: DollarSign },
-        { id: 'matters', label: 'Matter Analysis', icon: FileText },
-        { id: 'billing', label: 'Billing Trends', icon: Clock },
-        { id: 'kpis', label: 'KPIs & Aging', icon: Users }
+        { id: 'performance', label: t('rep_attorney_perf'), icon: BarChart3 },
+        { id: 'profitability', label: t('rep_top_clients'), icon: DollarSign },
+        { id: 'matters', label: t('rep_matters'), icon: FileText },
+        { id: 'billing', label: t('rep_billing_trends'), icon: Clock },
+        { id: 'kpis', label: t('rep_kpi'), icon: Users }
     ];
 
     // Advanced KPIs calculation
@@ -350,7 +356,7 @@ const Reports: React.FC = () => {
                         className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
                     >
                         <Download className="w-4 h-4" />
-                        CSV
+                        {t('export_csv')}
                     </button>
                     <button
                         onClick={exportToPDF}
@@ -358,7 +364,7 @@ const Reports: React.FC = () => {
                         className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
                     >
                         <FileText className="w-4 h-4" />
-                        PDF
+                        {t('export_pdf')}
                     </button>
                 </div>
             </div>
@@ -384,10 +390,10 @@ const Reports: React.FC = () => {
             </div>
 
             {/* Report Content */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+            <div id="report-content" className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
                 {activeReport === 'performance' && (
                     <div className="space-y-6">
-                        <h3 className="text-lg font-bold text-slate-800">Attorney Performance</h3>
+                        <h3 className="text-lg font-bold text-slate-800">{t('rep_attorney_perf')}</h3>
                         <div className="h-80">
                             <ResponsiveContainer width="100%" height="100%">
                                 <BarChart data={performanceData}>
@@ -396,9 +402,9 @@ const Reports: React.FC = () => {
                                     <YAxis tick={{ fontSize: 12 }} />
                                     <Tooltip />
                                     <Legend />
-                                    <Bar dataKey="billableHours" name="Billable Hours" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                                    <Bar dataKey="matters" name="Matters" fill="#10b981" radius={[4, 4, 0, 0]} />
-                                    <Bar dataKey="tasks" name="Tasks Completed" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                                    <Bar dataKey="billableHours" name={t('rep_billable_hours')} fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                                    <Bar dataKey="matters" name={t('rep_matters')} fill="#10b981" radius={[4, 4, 0, 0]} />
+                                    <Bar dataKey="tasks" name={t('rep_tasks_completed')} fill="#f59e0b" radius={[4, 4, 0, 0]} />
                                 </BarChart>
                             </ResponsiveContainer>
                         </div>
@@ -418,7 +424,7 @@ const Reports: React.FC = () => {
 
                 {activeReport === 'profitability' && (
                     <div className="space-y-6">
-                        <h3 className="text-lg font-bold text-slate-800">Top 10 Profitable Clients</h3>
+                        <h3 className="text-lg font-bold text-slate-800">{t('rep_top_clients')}</h3>
                         <div className="h-80">
                             <ResponsiveContainer width="100%" height="100%">
                                 <BarChart data={profitabilityData} layout="vertical">
@@ -427,8 +433,8 @@ const Reports: React.FC = () => {
                                     <YAxis dataKey="name" type="category" tick={{ fontSize: 11 }} width={120} />
                                     <Tooltip />
                                     <Legend />
-                                    <Bar dataKey="revenue" name="Revenue ($)" fill="#10b981" radius={[0, 4, 4, 0]} />
-                                    <Bar dataKey="hours" name="Hours" fill="#3b82f6" radius={[0, 4, 4, 0]} />
+                                    <Bar dataKey="revenue" name={t('rep_revenue')} fill="#10b981" radius={[0, 4, 4, 0]} />
+                                    <Bar dataKey="hours" name={t('rep_hours')} fill="#3b82f6" radius={[0, 4, 4, 0]} />
                                 </BarChart>
                             </ResponsiveContainer>
                         </div>
@@ -437,7 +443,7 @@ const Reports: React.FC = () => {
 
                 {activeReport === 'matters' && (
                     <div className="space-y-6">
-                        <h3 className="text-lg font-bold text-slate-800">Matters by Practice Area</h3>
+                        <h3 className="text-lg font-bold text-slate-800">{t('rep_matters_by_area')}</h3>
                         <div className="grid grid-cols-2 gap-6">
                             <div className="h-80">
                                 <ResponsiveContainer width="100%" height="100%">
@@ -480,37 +486,37 @@ const Reports: React.FC = () => {
 
                 {activeReport === 'billing' && (
                     <div className="space-y-6">
-                        <h3 className="text-lg font-bold text-slate-800">Billing & Collection Trends</h3>
+                        <h3 className="text-lg font-bold text-slate-800">{t('rep_billing_trends')}</h3>
                         <div className="h-80">
                             <ResponsiveContainer width="100%" height="100%">
-                                <LineChart data={billingTrends}>
+                                <BarChart data={billingTrends}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                                     <XAxis dataKey="month" tick={{ fontSize: 12 }} />
                                     <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
                                     <Tooltip formatter={(value: any) => `$${value.toLocaleString()}`} />
                                     <Legend />
-                                    <Line type="monotone" dataKey="billed" name="Billed" stroke="#3b82f6" strokeWidth={2} dot={{ r: 4 }} />
-                                    <Line type="monotone" dataKey="collected" name="Collected" stroke="#10b981" strokeWidth={2} dot={{ r: 4 }} />
-                                </LineChart>
+                                    <Bar dataKey="billed" name={t('rep_billed')} fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                                    <Bar dataKey="collected" name={t('rep_collected')} fill="#10b981" radius={[4, 4, 0, 0]} />
+                                </BarChart>
                             </ResponsiveContainer>
                         </div>
 
                         {/* Summary Stats */}
                         <div className="grid grid-cols-3 gap-4">
                             <div className="bg-blue-50 rounded-lg p-4 border border-blue-100">
-                                <p className="text-sm text-blue-600 font-medium">Total Billed</p>
+                                <p className="text-sm text-blue-600 font-medium">{t('rep_total_billed')}</p>
                                 <p className="text-2xl font-bold text-blue-700">
                                     ${billingTrends.reduce((sum, m) => sum + m.billed, 0).toLocaleString()}
                                 </p>
                             </div>
                             <div className="bg-green-50 rounded-lg p-4 border border-green-100">
-                                <p className="text-sm text-green-600 font-medium">Total Collected</p>
+                                <p className="text-sm text-green-600 font-medium">{t('rep_total_collected')}</p>
                                 <p className="text-2xl font-bold text-green-700">
                                     ${billingTrends.reduce((sum, m) => sum + m.collected, 0).toLocaleString()}
                                 </p>
                             </div>
                             <div className="bg-amber-50 rounded-lg p-4 border border-amber-100">
-                                <p className="text-sm text-amber-600 font-medium">Collection Rate</p>
+                                <p className="text-sm text-amber-600 font-medium">{t('rep_collection_rate')}</p>
                                 <p className="text-2xl font-bold text-amber-700">
                                     {(() => {
                                         const billed = billingTrends.reduce((sum, m) => sum + m.billed, 0);
@@ -525,14 +531,14 @@ const Reports: React.FC = () => {
 
                 {activeReport === 'kpis' && (
                     <div className="space-y-6">
-                        <h3 className="text-lg font-bold text-slate-800">Key Performance Indicators</h3>
+                        <h3 className="text-lg font-bold text-slate-800">{t('rep_kpi')}</h3>
 
                         {/* Rate Cards */}
                         <div className="grid grid-cols-4 gap-4">
                             <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-5 text-white">
-                                <p className="text-sm text-blue-100 font-medium">Utilization Rate</p>
+                                <p className="text-sm text-blue-100 font-medium">{t('rep_utilization')}</p>
                                 <p className="text-3xl font-bold mt-2">{kpiData.utilizationRate.toFixed(1)}%</p>
-                                <p className="text-xs text-blue-200 mt-1">Billable / Available Hours</p>
+                                <p className="text-xs text-blue-200 mt-1">{t('rep_util_desc')}</p>
                                 <div className="mt-3 bg-blue-400/30 rounded-full h-2">
                                     <div
                                         className="bg-white rounded-full h-2 transition-all"
@@ -542,9 +548,9 @@ const Reports: React.FC = () => {
                             </div>
 
                             <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-5 text-white">
-                                <p className="text-sm text-purple-100 font-medium">Realization Rate</p>
+                                <p className="text-sm text-purple-100 font-medium">{t('rep_realization')}</p>
                                 <p className="text-3xl font-bold mt-2">{kpiData.realizationRate.toFixed(1)}%</p>
-                                <p className="text-xs text-purple-200 mt-1">Billed / Worked Value</p>
+                                <p className="text-xs text-purple-200 mt-1">{t('rep_real_desc')}</p>
                                 <div className="mt-3 bg-purple-400/30 rounded-full h-2">
                                     <div
                                         className="bg-white rounded-full h-2 transition-all"
@@ -554,9 +560,9 @@ const Reports: React.FC = () => {
                             </div>
 
                             <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl p-5 text-white">
-                                <p className="text-sm text-emerald-100 font-medium">Collection Rate</p>
+                                <p className="text-sm text-emerald-100 font-medium">{t('rep_collection_kpi')}</p>
                                 <p className="text-3xl font-bold mt-2">{kpiData.collectionRate.toFixed(1)}%</p>
-                                <p className="text-xs text-emerald-200 mt-1">Collected / Billed</p>
+                                <p className="text-xs text-emerald-200 mt-1">{t('rep_coll_desc')}</p>
                                 <div className="mt-3 bg-emerald-400/30 rounded-full h-2">
                                     <div
                                         className="bg-white rounded-full h-2 transition-all"
@@ -566,16 +572,16 @@ const Reports: React.FC = () => {
                             </div>
 
                             <div className="bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl p-5 text-white">
-                                <p className="text-sm text-amber-100 font-medium">Work In Progress</p>
+                                <p className="text-sm text-amber-100 font-medium">{t('rep_wip')}</p>
                                 <p className="text-3xl font-bold mt-2">${kpiData.wip.toLocaleString()}</p>
-                                <p className="text-xs text-amber-200 mt-1">Unbilled Time & Expenses</p>
+                                <p className="text-xs text-amber-200 mt-1">{t('rep_wip_desc')}</p>
                             </div>
                         </div>
 
                         {/* A/R Aging Chart */}
                         <div className="grid grid-cols-2 gap-6">
                             <div>
-                                <h4 className="font-bold text-gray-700 mb-4">A/R Aging Analysis</h4>
+                                <h4 className="font-bold text-gray-700 mb-4">{t('rep_ar_aging')}</h4>
                                 <div className="h-64">
                                     <ResponsiveContainer width="100%" height="100%">
                                         <BarChart data={kpiData.agingData} layout="vertical">
@@ -594,7 +600,7 @@ const Reports: React.FC = () => {
                             </div>
 
                             <div>
-                                <h4 className="font-bold text-gray-700 mb-4">Aging Breakdown</h4>
+                                <h4 className="font-bold text-gray-700 mb-4">{t('rep_aging_breakdown')}</h4>
                                 <div className="space-y-3">
                                     {kpiData.agingData.map((item, i) => (
                                         <div key={i} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
@@ -606,7 +612,7 @@ const Reports: React.FC = () => {
                                         </div>
                                     ))}
                                     <div className="flex items-center justify-between p-3 bg-slate-800 rounded-lg text-white">
-                                        <span className="font-bold">Total Outstanding</span>
+                                        <span className="font-bold">{t('rep_total_outstanding')}</span>
                                         <span className="font-bold text-lg">
                                             ${Object.values(kpiData.aging).reduce((a, b) => a + b, 0).toLocaleString()}
                                         </span>

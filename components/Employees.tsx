@@ -113,6 +113,10 @@ const Employees: React.FC = () => {
                 } else {
                     toast.success('Çalışan başarıyla eklendi.');
                 }
+                // Instant update for better UX
+                if (res) {
+                    setEmployees(prev => [...prev, res as unknown as Employee]);
+                }
             }
             setShowForm(false);
             setEditingEmployee(null);

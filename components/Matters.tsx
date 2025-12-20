@@ -57,7 +57,10 @@ const Matters: React.FC = () => {
     partyId: '',
     partyType: 'client' as 'client' | 'lead',
     trustAmount: '' as string | number,
-    courtType: ''
+    courtType: '',
+    bailStatus: 'None',
+    bailAmount: '' as string | number,
+    outcome: ''
   });
 
   const courtOptions = [
@@ -106,7 +109,10 @@ const Matters: React.FC = () => {
       billableRate: 400,
       trustBalance: parseFloat(String(formData.trustAmount)) || 0,
       client: resolvedClient,
-      courtType: formData.courtType
+      courtType: formData.courtType,
+      bailStatus: formData.bailStatus as any,
+      bailAmount: formData.bailAmount ? parseFloat(String(formData.bailAmount)) : 0,
+      outcome: formData.outcome
     };
     addMatter({
       ...newMatter,
@@ -116,7 +122,19 @@ const Matters: React.FC = () => {
       sourceLeadId: selectedLead?.id
     });
     setShowModal(false);
-    setFormData({ name: '', caseNumber: '', practiceArea: PracticeArea.CivilLitigation, feeStructure: FeeStructure.Hourly, partyId: '', partyType: 'client', trustAmount: '', courtType: '' });
+    setFormData({
+      name: '',
+      caseNumber: '',
+      practiceArea: PracticeArea.CivilLitigation,
+      feeStructure: FeeStructure.Hourly,
+      partyId: '',
+      partyType: 'client',
+      trustAmount: '',
+      courtType: '',
+      bailStatus: 'None',
+      bailAmount: '',
+      outcome: ''
+    });
   };
 
   // Generate a mock timeline based on matter creation + related data
@@ -243,9 +261,9 @@ const Matters: React.FC = () => {
                   <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Matter Details</th>
                   <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Client</th>
                   <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Fee Structure</th>
-                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Court</th>
-                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Trust Funds</th>
+                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">{t('col_status')}</th>
+                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">{t('col_court')}</th>
+                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">{t('col_trust_funds')}</th>
                   <th className="pr-6 py-4"></th>
                 </tr>
               </thead>
@@ -438,6 +456,18 @@ const Matters: React.FC = () => {
               >
                 Open Folder
               </button>
+              <button
+                className="py-2 px-3 bg-white border border-gray-200 text-slate-600 rounded-lg text-sm font-bold hover:bg-gray-100 shadow-sm flex items-center gap-2"
+                onClick={() => {
+                  if (selectedMatter) {
+                    updateMatter(selectedMatter.id, { status: CaseStatus.Archived });
+                    toast.success(t('matter_archived'));
+                    setSelectedMatter(null);
+                  }
+                }}
+              >
+                Archive
+              </button>
             </div>
           </div>
         </div>
@@ -463,6 +493,9 @@ const Matters: React.FC = () => {
                   billableRate: editData.billableRate,
                   trustBalance: editData.trustBalance,
                   courtType: editData.courtType,
+                  bailStatus: editData.bailStatus,
+                  bailAmount: editData.bailAmount,
+                  outcome: editData.outcome
                 });
                 setShowModal(false);
                 setEditData(null);
@@ -572,6 +605,55 @@ const Matters: React.FC = () => {
                     }
                   }}
                 />
+              </div>
+
+              {/* Bail System (Kefalet) */}
+              <div className="pt-4 border-t border-gray-100">
+                <h4 className="text-sm font-bold text-slate-800 mb-3">{t('bail_info') || 'Kefalet / Ceza Bilgisi'}</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('bail_status')}</label>
+                    <select
+                      className="w-full border border-gray-300 rounded-lg p-2.5 text-sm bg-white text-slate-900 outline-none"
+                      value={editData ? editData.bailStatus || 'None' : formData.bailStatus}
+                      onChange={e => editData ? setEditData({ ...editData, bailStatus: e.target.value as any }) : setFormData({ ...formData, bailStatus: e.target.value })}
+                    >
+                      <option value="None">Yok (None)</option>
+                      <option value="Set">Belirlendi (Set)</option>
+                      <option value="Posted">Yatırıldı (Posted)</option>
+                      <option value="Returned">İade Edildi (Returned)</option>
+                      <option value="Forfeited">Yakıldı (Forfeited)</option>
+                      <option value="Exonerated">Kaldırıldı (Exonerated)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('bail_amount')}</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-2.5 text-gray-400 text-xs">$</span>
+                      <input
+                        type="number"
+                        placeholder="0.00"
+                        className="w-full pl-6 border border-gray-300 rounded-lg p-2.5 text-sm bg-white text-slate-900 outline-none"
+                        value={editData ? editData.bailAmount || '' : formData.bailAmount}
+                        onChange={e => {
+                          const val = e.target.value;
+                          if (editData) setEditData({ ...editData, bailAmount: val ? parseFloat(val) : 0 });
+                          else setFormData({ ...formData, bailAmount: val });
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('case_outcome')}</label>
+                  <input
+                    type="text"
+                    placeholder="Örn: Beraat, Mahkumiyet, Takipsizlik..."
+                    className="w-full border border-gray-300 rounded-lg p-2.5 text-sm bg-white text-slate-900 outline-none"
+                    value={editData ? editData.outcome || '' : formData.outcome}
+                    onChange={e => editData ? setEditData({ ...editData, outcome: e.target.value }) : setFormData({ ...formData, outcome: e.target.value })}
+                  />
+                </div>
               </div>
               <div className="flex justify-end gap-3 mt-6">
                 <button type="button" onClick={() => { setShowModal(false); setEditData(null); }} className="px-4 py-2 text-sm font-bold text-gray-600 hover:bg-gray-100 rounded-lg">{t('cancel')}</button>

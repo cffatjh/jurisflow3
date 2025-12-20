@@ -141,6 +141,9 @@ export interface Matter {
   billableRate: number;
   trustBalance: number;
   courtType?: string;
+  bailStatus?: 'None' | 'Set' | 'Posted' | 'Forfeited' | 'Exonerated' | 'Returned';
+  bailAmount?: number;
+  outcome?: string;
 }
 
 export interface TimeEntry {

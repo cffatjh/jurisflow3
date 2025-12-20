@@ -743,13 +743,20 @@ const Billing: React.FC = () => {
                                     >
                                         {t('cancel')}
                                     </button>
-                                    <button
-                                        type="submit"
-                                        disabled={!invoicePreview || invoicePreview.total <= 0}
-                                        className="flex-1 py-2.5 bg-slate-900 text-white rounded-lg font-bold hover:bg-slate-800 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                        Generate Invoice
-                                    </button>
+                                    <div className="flex flex-col gap-2 flex-1">
+                                        <button
+                                            type="submit"
+                                            disabled={!invoicePreview || invoicePreview.total <= 0}
+                                            className="w-full py-2.5 bg-slate-900 text-white rounded-lg font-bold hover:bg-slate-800 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            Generate Invoice
+                                        </button>
+                                        {invoicePreview && invoicePreview.total <= 0 && (
+                                            <p className="text-xs text-red-500 text-center">
+                                                * Fatura oluşturulamaz: Bu dava için faturalandırılacak kalem (zaman/masraf) bulunamadı.
+                                            </p>
+                                        )}
+                                    </div>
                                 </div>
                             </form>
                         </div>
