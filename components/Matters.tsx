@@ -139,11 +139,13 @@ const Matters: React.FC = () => {
 
   // Generate a mock timeline based on matter creation + related data
   const getTimeline = (matterId: string) => {
+    // FIX: Get the correct matter by ID instead of relying on selectedMatter state
+    const matter = matters.find(m => m.id === matterId);
     const items = [
-      // Basic Open Event
-      { type: 'opened', date: selectedMatter?.openDate || new Date().toISOString(), title: 'Case Opened', detail: 'Initial file creation' },
-      // Linked Docs
-      ...documents.filter(d => d.matterId === matterId || !d.matterId).slice(0, 2).map(d => ({ type: 'doc', date: d.updatedAt, title: 'Document Added', detail: d.name })),
+      // Basic Open Event - uses the correct matter's openDate
+      { type: 'opened', date: matter?.openDate || new Date().toISOString(), title: 'Case Opened', detail: 'Initial file creation' },
+      // Linked Docs - FIX: Only show documents explicitly linked to this matter (removed !d.matterId to prevent privacy leak)
+      ...documents.filter(d => d.matterId === matterId).slice(0, 2).map(d => ({ type: 'doc', date: d.updatedAt, title: 'Document Added', detail: d.name })),
       // Linked Time
       ...timeEntries.filter(te => te.matterId === matterId).map(te => ({ type: 'time', date: te.date, title: 'Billable Activity', detail: te.description })),
     ];
