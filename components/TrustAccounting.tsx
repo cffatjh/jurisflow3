@@ -5,11 +5,9 @@
 
 import React, { useState, useEffect } from 'react';
 import {
-    Building2, Wallet, ArrowDownCircle, ArrowUpCircle,
-    FileCheck, History, AlertTriangle, CheckCircle2,
-    Users, Scale, RefreshCw, Search, Plus, Eye,
-    DollarSign, Calculator, ClipboardCheck, Ban
-} from 'lucide-react';
+    AlertTriangle, DollarSign, Scale, RefreshCw,
+    Users, Plus, Eye, Check, X
+} from './Icons';
 import { useTranslation } from '../contexts/LanguageContext';
 import { useData } from '../contexts/DataContext';
 import {
@@ -17,7 +15,56 @@ import {
     TrustTxStatus, TrustTransactionTypeV2, ReconciliationRecord
 } from '../types';
 
-// Simple toast replacement (using console for now)
+// Simple icons for Trust-specific actions (inline SVG)
+const ArrowDownCircle = ({ className }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <circle cx="12" cy="12" r="10" /><path d="M12 8v8" /><path d="m8 12 4 4 4-4" />
+    </svg>
+);
+
+const ArrowUpCircle = ({ className }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <circle cx="12" cy="12" r="10" /><path d="M12 16V8" /><path d="m8 12 4-4 4 4" />
+    </svg>
+);
+
+const Calculator = ({ className }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <rect width="16" height="20" x="4" y="2" rx="2" /><line x1="8" x2="16" y1="6" y2="6" /><line x1="16" x2="16" y1="14" y2="18" /><path d="M8 10h.01" /><path d="M12 10h.01" /><path d="M16 10h.01" /><path d="M8 14h.01" /><path d="M12 14h.01" /><path d="M8 18h.01" /><path d="M12 18h.01" />
+    </svg>
+);
+
+const CheckCircle2 = ({ className }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <circle cx="12" cy="12" r="10" /><path d="m9 12 2 2 4-4" />
+    </svg>
+);
+
+const Ban = ({ className }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <circle cx="12" cy="12" r="10" /><path d="m4.9 4.9 14.2 14.2" />
+    </svg>
+);
+
+const FileCheck = ({ className }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" /><polyline points="14 2 14 8 20 8" /><path d="m9 15 2 2 4-4" />
+    </svg>
+);
+
+const History = ({ className }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /><path d="M12 7v5l4 2" />
+    </svg>
+);
+
+const Building2 = ({ className }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z" /><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2" /><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2" /><path d="M10 6h4" /><path d="M10 10h4" /><path d="M10 14h4" /><path d="M10 18h4" />
+    </svg>
+);
+
+// Simple toast replacement (using alerts)
 const toast = {
     success: (msg: string) => alert('✅ ' + msg),
     error: (msg: string) => alert('❌ ' + msg),
@@ -363,7 +410,7 @@ export default function TrustAccounting() {
                 <div className="glass-card p-4 rounded-xl">
                     <div className="flex items-center gap-3">
                         <div className={`p-3 rounded-lg ${pendingTransactions > 0 ? 'bg-yellow-100 dark:bg-yellow-900/30' : 'bg-gray-100 dark:bg-gray-800'}`}>
-                            <ClipboardCheck className={`w-6 h-6 ${pendingTransactions > 0 ? 'text-yellow-600' : 'text-gray-400'}`} />
+                            <CheckCircle2 className={`w-6 h-6 ${pendingTransactions > 0 ? 'text-yellow-600' : 'text-gray-400'}`} />
                         </div>
                         <div>
                             <p className="text-sm text-gray-500">Bekleyen Onay</p>
