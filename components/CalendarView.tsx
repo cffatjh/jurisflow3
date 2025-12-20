@@ -146,7 +146,11 @@ const CalendarView: React.FC = () => {
                             const start = new Date(ev.date).getTime();
                             const end = start + (ev.duration || 60) * 60 * 1000;
                             const isHappening = now >= start && now <= end;
-                            if (isHappening) return 'bg-green-500 text-white animate-pulse';
+                            const isPast = end < now;
+
+                            if (isHappening) return 'bg-green-500 text-white animate-pulse ring-2 ring-green-300 z-10';
+                            if (isPast) return 'bg-gray-100 text-gray-400 opacity-60 line-through decoration-gray-400';
+
                             return ev.type === 'Court' ? 'bg-red-100 text-red-700' :
                               ev.type === 'Deadline' ? 'bg-amber-100 text-amber-700' :
                                 'bg-blue-100 text-blue-700';
@@ -204,60 +208,66 @@ const CalendarView: React.FC = () => {
             </div>
           ) : (
             <div className="space-y-6 overflow-y-auto pr-2">
-              {events.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).map(event => (
-                <div key={event.id} className="flex gap-3 relative group">
-                  <div className="flex flex-col items-center">
-                    <div className="w-2 h-2 rounded-full bg-slate-400 mt-2 group-hover:bg-primary-500 transition-colors"></div>
-                    <div className="w-px h-full bg-gray-200 my-1"></div>
-                  </div>
-                  <div className="pb-4 flex-1">
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <p className="text-sm font-semibold text-gray-800">{event.title}</p>
-                        <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
-                          <Clock className="w-3 h-3" />
-                          {new Date(event.date).toLocaleDateString() + " " + new Date(event.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </p>
-                        <span className={`inline-block mt-2 px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wide
+              {events
+                .filter(e => {
+                  const end = new Date(e.date).getTime() + (e.duration || 60) * 60 * 1000;
+                  return end >= Date.now();
+                })
+                .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                .map(event => (
+                  <div key={event.id} className="flex gap-3 relative group">
+                    <div className="flex flex-col items-center">
+                      <div className="w-2 h-2 rounded-full bg-slate-400 mt-2 group-hover:bg-primary-500 transition-colors"></div>
+                      <div className="w-px h-full bg-gray-200 my-1"></div>
+                    </div>
+                    <div className="pb-4 flex-1">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <p className="text-sm font-semibold text-gray-800">{event.title}</p>
+                          <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
+                            <Clock className="w-3 h-3" />
+                            {new Date(event.date).toLocaleDateString() + " " + new Date(event.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                          <span className={`inline-block mt-2 px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wide
                          ${(() => {
-                            const now = Date.now();
-                            const start = new Date(event.date).getTime();
-                            const end = start + (event.duration || 60) * 60 * 1000;
-                            const isHappening = now >= start && now <= end;
-                            if (isHappening) return 'bg-green-500 text-white animate-pulse';
-                            return event.type === 'Court' ? 'bg-red-50 text-red-700' :
-                              event.type === 'Deadline' ? 'bg-amber-50 text-amber-700' : 'bg-blue-50 text-blue-700';
-                          })()}`}>
-                          {(() => {
-                            const now = Date.now();
-                            const start = new Date(event.date).getTime();
-                            const end = start + (event.duration || 60) * 60 * 1000;
-                            const isHappening = now >= start && now <= end;
-                            return isHappening ? '🔴 ŞU AN' : event.type;
-                          })()}
-                        </span>
+                              const now = Date.now();
+                              const start = new Date(event.date).getTime();
+                              const end = start + (event.duration || 60) * 60 * 1000;
+                              const isHappening = now >= start && now <= end;
+                              if (isHappening) return 'bg-green-500 text-white animate-pulse';
+                              return event.type === 'Court' ? 'bg-red-50 text-red-700' :
+                                event.type === 'Deadline' ? 'bg-amber-50 text-amber-700' : 'bg-blue-50 text-blue-700';
+                            })()}`}>
+                            {(() => {
+                              const now = Date.now();
+                              const start = new Date(event.date).getTime();
+                              const end = start + (event.duration || 60) * 60 * 1000;
+                              const isHappening = now >= start && now <= end;
+                              return isHappening ? '🔴 ŞU AN' : event.type;
+                            })()}
+                          </span>
+                        </div>
+                        <button
+                          onClick={async () => {
+                            const ok = await confirm({
+                              title: 'Etkinliği sil',
+                              message: `"${event.title}" etkinliğini silmek istiyor musunuz?`,
+                              confirmText: 'Sil',
+                              cancelText: 'İptal',
+                              variant: 'danger'
+                            });
+                            if (!ok) return;
+                            deleteEvent(event.id);
+                          }}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity text-red-500 hover:text-red-700 p-1"
+                          title="Delete event"
+                        >
+                          <Trash className="w-4 h-4" />
+                        </button>
                       </div>
-                      <button
-                        onClick={async () => {
-                          const ok = await confirm({
-                            title: 'Etkinliği sil',
-                            message: `"${event.title}" etkinliğini silmek istiyor musunuz?`,
-                            confirmText: 'Sil',
-                            cancelText: 'İptal',
-                            variant: 'danger'
-                          });
-                          if (!ok) return;
-                          deleteEvent(event.id);
-                        }}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity text-red-500 hover:text-red-700 p-1"
-                        title="Delete event"
-                      >
-                        <Trash className="w-4 h-4" />
-                      </button>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))}
             </div>
           )}
           <button onClick={() => openAddModal(currentDate.getDate())} className="mt-4 w-full py-2 border border-dashed border-gray-300 rounded text-sm text-gray-500 hover:border-gray-400 hover:text-gray-700">

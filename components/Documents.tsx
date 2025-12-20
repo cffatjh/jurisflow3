@@ -15,7 +15,7 @@ const API_BASE_URL = import.meta.env.PROD ? '' : 'http://localhost:3001';
 const Documents: React.FC = () => {
   const { t, formatDate } = useTranslation();
   const { matters, documents, addDocument, updateDocument, deleteDocument, bulkAssignDocuments } = useData();
-  const confirm = useConfirm();
+  const { confirm } = useConfirm();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showFilter, setShowFilter] = useState(false);
   const [filterType, setFilterType] = useState('all');
@@ -36,10 +36,19 @@ const Documents: React.FC = () => {
   );
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkMatterId, setBulkMatterId] = useState<string>('');
+  const [editCategory, setEditCategory] = useState<string>('');
 
   useEffect(() => {
     setIsGoogleDocsConnected(!!googleDocsAccessToken);
   }, [googleDocsAccessToken]);
+
+  const selectAll = () => {
+    if (selectedIds.length === filteredDocs.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(filteredDocs.map(d => d.id));
+    }
+  };
 
   const handleGoogleDocsConnect = () => {
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
@@ -144,9 +153,15 @@ const Documents: React.FC = () => {
     }
     // If "My Files" is selected (selectedMatter === null), show ALL documents
 
-    // Filter by type
+    // Filter by type or category
     if (filterType === 'all') return true;
-    return doc.type === filterType;
+    if (['pdf', 'docx', 'img'].includes(filterType)) {
+      if (doc.type !== filterType) return false;
+    } else {
+      // Assume it's a category
+      if (doc.category !== filterType) return false;
+    }
+    return true;
   });
 
   const getMatterName = (matterId?: string) => {
@@ -337,6 +352,13 @@ const Documents: React.FC = () => {
               <button onClick={() => { setFilterType('all'); setShowFilter(false); }} className="w-full text-left px-2 py-1.5 text-sm hover:bg-gray-50 rounded">All Files</button>
               <button onClick={() => { setFilterType('pdf'); setShowFilter(false); }} className="w-full text-left px-2 py-1.5 text-sm hover:bg-gray-50 rounded">PDFs</button>
               <button onClick={() => { setFilterType('docx'); setShowFilter(false); }} className="w-full text-left px-2 py-1.5 text-sm hover:bg-gray-50 rounded">Documents</button>
+
+              <div className="text-xs font-bold text-gray-400 px-2 py-1 uppercase mt-2">Category</div>
+              <button onClick={() => { setFilterType('Contract'); setShowFilter(false); }} className="w-full text-left px-2 py-1.5 text-sm hover:bg-gray-50 rounded">Contracts</button>
+              <button onClick={() => { setFilterType('Notice'); setShowFilter(false); }} className="w-full text-left px-2 py-1.5 text-sm hover:bg-gray-50 rounded">Notices</button>
+              <button onClick={() => { setFilterType('Court Order'); setShowFilter(false); }} className="w-full text-left px-2 py-1.5 text-sm hover:bg-gray-50 rounded">Court Orders</button>
+              <button onClick={() => { setFilterType('Evidence'); setShowFilter(false); }} className="w-full text-left px-2 py-1.5 text-sm hover:bg-gray-50 rounded">Evidence</button>
+              <button onClick={() => { setFilterType('Invoice'); setShowFilter(false); }} className="w-full text-left px-2 py-1.5 text-sm hover:bg-gray-50 rounded">Invoices</button>
             </div>
           )}
 
@@ -370,8 +392,8 @@ const Documents: React.FC = () => {
           <button
             onClick={() => setSelectedMatter(null)}
             className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors text-left ${selectedMatter === null
-                ? 'bg-white border border-gray-200 text-primary-600 shadow-sm'
-                : 'hover:bg-gray-100 text-gray-600'
+              ? 'bg-white border border-gray-200 text-primary-600 shadow-sm'
+              : 'hover:bg-gray-100 text-gray-600'
               }`}
           >
             <Folder className="w-4 h-4" /> {t('my_files')}
@@ -384,8 +406,8 @@ const Documents: React.FC = () => {
               key={m.id}
               onClick={() => setSelectedMatter(m.id)}
               className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors text-left truncate ${selectedMatter === m.id
-                  ? 'bg-white border border-gray-200 text-primary-600 shadow-sm'
-                  : 'hover:bg-gray-100 text-gray-600'
+                ? 'bg-white border border-gray-200 text-primary-600 shadow-sm'
+                : 'hover:bg-gray-100 text-gray-600'
                 }`}
             >
               <Folder className="w-4 h-4 text-gray-400 shrink-0" />
@@ -402,6 +424,9 @@ const Documents: React.FC = () => {
                 {selectedIds.length} doküman seçildi
               </div>
               <div className="flex items-center gap-2">
+                <button onClick={selectAll} className="text-xs px-2 py-1 bg-white border border-indigo-200 rounded text-indigo-600 font-bold hover:bg-indigo-50">
+                  {selectedIds.length === filteredDocs.length ? 'Bırak' : 'Tümünü Seç'}
+                </button>
                 <select
                   value={bulkMatterId}
                   onChange={e => setBulkMatterId(e.target.value)}
@@ -461,7 +486,7 @@ const Documents: React.FC = () => {
                       Seç
                     </label>
                     <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${doc.type === 'folder' ? 'bg-blue-50 text-blue-500' :
-                        doc.type === 'pdf' ? 'bg-red-50 text-red-500' : 'bg-blue-50 text-blue-600'
+                      doc.type === 'pdf' ? 'bg-red-50 text-red-500' : 'bg-blue-50 text-blue-600'
                       }`}>
                       {doc.type === 'folder' ? <Folder className="w-6 h-6" /> : <FileText className="w-6 h-6" />}
                     </div>
@@ -473,6 +498,7 @@ const Documents: React.FC = () => {
                           setEditingDoc(doc);
                           setEditMatterId(doc.matterId || '');
                           setEditTags((doc.tags || []).join(', '));
+                          setEditCategory(doc.category || '');
                         }}
                         className="text-xs text-gray-500 hover:underline"
                         title="Assign to matter"
@@ -504,6 +530,11 @@ const Documents: React.FC = () => {
                       <span>{doc.size || 'Unknown'}</span>
                       <span>{formatDate(doc.updatedAt)}</span>
                     </div>
+                    {doc.category && (
+                      <div className="mt-1">
+                        <span className="inline-block px-2 py-0.5 bg-gray-100 text-gray-600 text-[10px] rounded border border-gray-200">{doc.category}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -604,6 +635,21 @@ const Documents: React.FC = () => {
                 placeholder="örn: sözleşme, vekalet, delil"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               />
+
+              <label className="block text-sm font-medium text-gray-700 mb-2 mt-4">Category</label>
+              <select
+                value={editCategory}
+                onChange={(e) => setEditCategory(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              >
+                <option value="">-- No Category --</option>
+                <option value="Contract">Contract</option>
+                <option value="Notice">Notice</option>
+                <option value="Court Order">Court Order</option>
+                <option value="Evidence">Evidence</option>
+                <option value="Invoice">Invoice</option>
+                <option value="Other">Other</option>
+              </select>
             </div>
 
             <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
@@ -612,6 +658,7 @@ const Documents: React.FC = () => {
                   setEditingDoc(null);
                   setEditMatterId('');
                   setEditTags('');
+                  setEditCategory('');
                 }}
                 className="px-4 py-2 text-gray-600 hover:text-gray-800 text-sm font-medium"
               >
@@ -624,11 +671,12 @@ const Documents: React.FC = () => {
                       .split(',')
                       .map(s => s.trim())
                       .filter(Boolean);
-                    await updateDocument(editingDoc.id, { matterId: editMatterId || undefined, tags });
+                    await updateDocument(editingDoc.id, { matterId: editMatterId || undefined, tags, category: editCategory || undefined });
                     toast.success('✓ Doküman güncellendi');
                     setEditingDoc(null);
                     setEditMatterId('');
                     setEditTags('');
+                    setEditCategory('');
                   }
                 }}
                 className="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700"

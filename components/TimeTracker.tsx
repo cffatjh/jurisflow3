@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useData } from '../contexts/DataContext';
 import { useTranslation } from '../contexts/LanguageContext';
-import { Clock, Pause, Timer, CheckSquare, CreditCard, Plus, X } from './Icons';
+import { Clock, Pause, Timer, CheckSquare, CreditCard, Plus, X, Camera } from './Icons';
+import Tesseract from 'tesseract.js';
 import { TimeEntry, Expense } from '../types';
 import { toast } from './Toast';
 
@@ -41,6 +42,64 @@ const TimeTracker = () => {
     const [expenseCategory, setExpenseCategory] = useState('Court Fee');
     const [expenseDesc, setExpenseDesc] = useState('');
     const [expenseMatterId, setExpenseMatterId] = useState('');
+    const [isScanning, setIsScanning] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const handleScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!e.target.files || e.target.files.length === 0) return;
+
+        setIsScanning(true);
+        const file = e.target.files[0];
+
+        try {
+            const { data: { text } } = await Tesseract.recognize(
+                file,
+                'tur+eng', // Try both Turkish and English
+                { logger: m => console.log(m) }
+            );
+
+            // Simple heuristics extraction
+            console.log('OCR Text:', text);
+            let extractedAmount = '';
+            let extractedDesc = '';
+
+            // Try to find amount (looking for currency symbols or "Total")
+            const amountMatches = text.match(/(?:Total|Tutar|Toplam|Amount|Grand Total).*?(\d+[.,]\d{2})/i);
+            if (amountMatches && amountMatches[1]) {
+                extractedAmount = amountMatches[1].replace(',', '.');
+            } else {
+                // Fallback: look for largest number that looks like a price
+                const prices = text.match(/\d+[.,]\d{2}/g);
+                if (prices && prices.length > 0) {
+                    // rudimentary guess: usually total is near the end or is the largest? 
+                    // Let's just take the first one found after typical keywords if above failed, 
+                    // or just leave it blank to avoid bad guesses.
+                    // Actually, let's try to match standalone numbers with currency signs
+                    const currencyMatch = text.match(/[₺$€£]\s*(\d+[.,]\d{2})/);
+                    if (currencyMatch) extractedAmount = currencyMatch[1].replace(',', '.');
+                }
+            }
+
+            // Try to find description (Vendor name usually at top)
+            const lines = text.split('\n').filter(l => l.trim().length > 3);
+            if (lines.length > 0) {
+                // First non-empty line is often the vendor name
+                extractedDesc = lines[0].trim();
+            }
+
+            if (extractedAmount) setExpenseAmount(extractedAmount);
+            if (extractedDesc) setExpenseDesc(`Fatura: ${extractedDesc}`);
+
+            toast.success('Fatura tarandı! Lütfen bilgileri kontrol edin.');
+
+        } catch (error) {
+            console.error(error);
+            toast.error('OCR işlemi başarısız oldu.');
+        } finally {
+            setIsScanning(false);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+    };
 
     // --- TIMER UI LOOP ---
     useEffect(() => {
@@ -222,7 +281,22 @@ const TimeTracker = () => {
                     </div>
                 ) : (
                     // EXPENSE TAB (Keep as is)
-                    <div className="flex flex-col md:flex-row gap-6 items-end animate-in fade-in slide-in-from-top-4 duration-300">
+                    <div className="flex flex-col md:flex-row gap-6 items-end animate-in fade-in slide-in-from-top-4 duration-300 relative">
+                        {isScanning && (
+                            <div className="absolute inset-0 bg-white/80 z-10 flex items-center justify-center rounded-xl backdrop-blur-sm">
+                                <div className="flex flex-col items-center">
+                                    <div className="w-8 h-8 border-4 border-slate-900 border-t-transparent rounded-full animate-spin mb-2"></div>
+                                    <p className="text-sm font-bold text-slate-800">Fatura Taranıyor...</p>
+                                </div>
+                            </div>
+                        )}
+                        <input
+                            type="file"
+                            ref={fileInputRef}
+                            className="hidden"
+                            accept="image/*,.pdf"
+                            onChange={handleScan}
+                        />
                         <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4 w-full">
                             <div className="flex flex-col">
                                 <label className="text-xs font-bold text-gray-500 uppercase mb-1">{t('select_matter')}</label>
@@ -236,7 +310,16 @@ const TimeTracker = () => {
                                 </select>
                             </div>
                             <div className="flex flex-col">
-                                <label className="text-xs font-bold text-gray-500 uppercase mb-1">{t('expense_amount')}</label>
+                                <label className="text-xs font-bold text-gray-500 uppercase mb-1 flex justify-between items-center">
+                                    {t('expense_amount')}
+                                    <button
+                                        onClick={() => fileInputRef.current?.click()}
+                                        className="text-xs text-primary-600 hover:text-primary-800 flex items-center gap-1 font-bold"
+                                        title="Scan Invoice"
+                                    >
+                                        <Camera className="w-3 h-3" /> Scan
+                                    </button>
+                                </label>
                                 <div className="relative">
                                     <span className="absolute left-3 top-2.5 text-gray-500 text-sm">$</span>
                                     <input

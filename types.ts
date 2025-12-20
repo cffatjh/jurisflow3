@@ -26,8 +26,47 @@ export enum EmployeeRole {
   SECRETARY = 'SECRETARY',
   PARALEGAL = 'PARALEGAL',
   INTERN_LAWYER = 'INTERN_LAWYER',
-  ACCOUNTANT = 'ACCOUNTANT'
+  ACCOUNTANT = 'ACCOUNTANT',
+  ATTORNEY = 'ATTORNEY'
 }
+
+export type Permission =
+  | 'system.admin' // User management, Global config
+  | 'system.config' // Infrastructure settings
+  | 'user.manage' // Manage staff
+  | 'matter.view'
+  | 'matter.create'
+  | 'matter.edit'
+  | 'matter.delete'
+  | 'billing.view'
+  | 'billing.manage' // Create/Edit invoices
+  | 'billing.approve'
+  | 'trust.view'
+  | 'trust.manage'
+  | 'document.view'
+  | 'document.create'
+  | 'document.edit'
+  | 'document.delete' // Special permission
+  | 'report.financial'
+  | 'calendar.manage'
+  | 'task.manage'
+  | 'client.manage';
+
+export const ROLE_PERMISSIONS: Record<EmployeeRole, Permission[]> = {
+  [EmployeeRole.INTERN_LAWYER]: ['matter.view', 'document.view', 'document.create', 'document.edit', 'calendar.manage', 'task.manage'],
+  [EmployeeRole.SECRETARY]: ['calendar.manage', 'client.manage', 'task.manage', 'matter.view', 'document.view'],
+  [EmployeeRole.PARALEGAL]: ['matter.create', 'matter.view', 'matter.edit', 'document.create', 'document.edit', 'document.view', 'calendar.manage', 'task.manage', 'client.manage', 'billing.manage'], // billing.manage for drafts
+  [EmployeeRole.ACCOUNTANT]: ['billing.view', 'billing.manage', 'billing.approve', 'trust.view', 'trust.manage', 'report.financial', 'matter.view', 'document.view'],
+  [EmployeeRole.ATTORNEY]: [
+    'user.manage',
+    'matter.view', 'matter.create', 'matter.edit', 'matter.delete',
+    'billing.view', 'billing.manage', 'billing.approve',
+    'trust.view', 'trust.manage',
+    'document.view', 'document.create', 'document.edit', 'document.delete',
+    'report.financial',
+    'calendar.manage', 'task.manage', 'client.manage'
+  ]
+};
 
 // Çalışan Durumu
 export enum EmployeeStatus {
@@ -101,6 +140,7 @@ export interface Matter {
   responsibleAttorney: string;
   billableRate: number;
   trustBalance: number;
+  courtType?: string;
 }
 
 export interface TimeEntry {
@@ -281,6 +321,7 @@ export interface DocumentFile {
   filePath?: string; // server file path for uploaded documents
   description?: string;
   tags?: string[];
+  category?: string;
   version?: number;
 }
 

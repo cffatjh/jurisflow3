@@ -252,7 +252,7 @@ const Reports: React.FC = () => {
 
         // Total hours billed to clients (from invoices)
         const totalBilledAmount = invoices?.reduce((sum, inv) => sum + inv.amount, 0) || 0;
-        const totalCollected = invoices?.filter(i => i.status === 'Paid' || i.status === 'PAID').reduce((sum, inv) => sum + inv.amount, 0) || 0;
+        const totalCollected = invoices?.filter(i => i.status === 'PAID').reduce((sum, inv) => sum + inv.amount, 0) || 0;
 
         // Worked value (hours * rate)
         const totalWorkedValue = timeEntries?.reduce((sum, t) => sum + ((t.duration / 60) * t.rate), 0) || 0;
@@ -270,7 +270,7 @@ const Reports: React.FC = () => {
         const aging = { current: 0, days30: 0, days60: 0, days90: 0, over90: 0 };
 
         invoices?.forEach(inv => {
-            if (inv.status === 'Paid' || inv.status === 'PAID') return;
+            if (inv.status === 'PAID') return;
 
             const dueDate = new Date(inv.dueDate);
             const daysOverdue = Math.floor((now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));

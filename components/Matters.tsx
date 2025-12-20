@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Matter, CaseStatus, PracticeArea, FeeStructure, Client, DocumentFile } from '../types';
 import { Search, ChevronRight, Filter, Plus, X, Clock, FileText, Mail, Calendar, Trash } from './Icons';
+import { Can } from './common/Can';
 import { useTranslation } from '../contexts/LanguageContext';
 import { useData } from '../contexts/DataContext';
 import mammoth from 'mammoth';
@@ -54,7 +55,8 @@ const Matters: React.FC = () => {
     feeStructure: FeeStructure.Hourly,
     partyId: '',
     partyType: 'client' as 'client' | 'lead',
-    trustAmount: '' as string | number
+    trustAmount: '' as string | number,
+    courtType: ''
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -90,7 +92,8 @@ const Matters: React.FC = () => {
       responsibleAttorney: 'Partner',
       billableRate: 400,
       trustBalance: parseFloat(String(formData.trustAmount)) || 0,
-      client: resolvedClient
+      client: resolvedClient,
+      courtType: formData.courtType
     };
     addMatter({
       ...newMatter,
@@ -100,7 +103,7 @@ const Matters: React.FC = () => {
       sourceLeadId: selectedLead?.id
     });
     setShowModal(false);
-    setFormData({ name: '', caseNumber: '', practiceArea: PracticeArea.CivilLitigation, feeStructure: FeeStructure.Hourly, partyId: '', partyType: 'client', trustAmount: '' });
+    setFormData({ name: '', caseNumber: '', practiceArea: PracticeArea.CivilLitigation, feeStructure: FeeStructure.Hourly, partyId: '', partyType: 'client', trustAmount: '', courtType: '' });
   };
 
   // Generate a mock timeline based on matter creation + related data
@@ -169,13 +172,15 @@ const Matters: React.FC = () => {
           <h1 className="text-2xl font-bold text-slate-900">{t('matters_title')}</h1>
           <p className="text-sm text-gray-500 mt-1">{t('matters_subtitle')}</p>
         </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="bg-slate-800 text-white px-5 py-2.5 rounded-lg shadow-lg hover:bg-slate-700 transition-colors text-sm font-medium flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          <span>{t('new_matter')}</span>
-        </button>
+        <Can perform="matter.create">
+          <button
+            onClick={() => setShowModal(true)}
+            className="bg-slate-800 text-white px-5 py-2.5 rounded-lg shadow-lg hover:bg-slate-700 transition-colors text-sm font-medium flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            <span>{t('new_matter')}</span>
+          </button>
+        </Can>
       </div>
 
       {/* Filters & Search Toolbar */}
@@ -226,6 +231,7 @@ const Matters: React.FC = () => {
                   <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Client</th>
                   <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Fee Structure</th>
                   <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Court</th>
                   <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Trust Funds</th>
                   <th className="pr-6 py-4"></th>
                 </tr>
@@ -239,8 +245,8 @@ const Matters: React.FC = () => {
                   >
                     <td className="pl-6 py-4">
                       <div className={`w-1.5 h-10 rounded-full ${matter.status === CaseStatus.Open ? 'bg-emerald-500' :
-                          matter.status === CaseStatus.Trial ? 'bg-red-500' :
-                            matter.status === CaseStatus.Pending ? 'bg-amber-400' : 'bg-gray-300'
+                        matter.status === CaseStatus.Trial ? 'bg-red-500' :
+                          matter.status === CaseStatus.Pending ? 'bg-amber-400' : 'bg-gray-300'
                         }`}></div>
                     </td>
                     <td className="px-4 py-4">
@@ -276,6 +282,9 @@ const Matters: React.FC = () => {
                             matter.status === CaseStatus.Pending ? t('status_pending') : t('status_closed')}
                       </span>
                     </td>
+                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
+                      {matter.courtType || '-'}
+                    </td>
                     <td className="px-4 py-4 whitespace-nowrap text-sm font-mono font-medium text-gray-600">
                       {formatCurrency(matter.trustBalance)}
                     </td>
@@ -303,7 +312,7 @@ const Matters: React.FC = () => {
                   <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full uppercase">{selectedMatter.status}</span>
                 </div>
                 <h2 className="text-xl font-bold text-slate-900">{selectedMatter.name}</h2>
-                <p className="text-sm text-gray-500 mt-0.5">{selectedMatter.client.name} • {selectedMatter.practiceArea}</p>
+                <p className="text-sm text-gray-500 mt-0.5">{selectedMatter.client.name} • {selectedMatter.practiceArea} {selectedMatter.courtType && `• ${selectedMatter.courtType}`}</p>
               </div>
               <button onClick={() => setSelectedMatter(null)} className="p-1 hover:bg-gray-200 rounded-full text-gray-400"><X className="w-6 h-6" /></button>
             </div>
@@ -373,8 +382,8 @@ const Matters: React.FC = () => {
                             )}
                           </div>
                           <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${task.priority === 'High' ? 'bg-red-100 text-red-700' :
-                              task.priority === 'Medium' ? 'bg-amber-100 text-amber-700' :
-                                'bg-gray-100 text-gray-600'
+                            task.priority === 'Medium' ? 'bg-amber-100 text-amber-700' :
+                              'bg-gray-100 text-gray-600'
                             }`}>{task.priority}</span>
                         </div>
                       </div>
@@ -386,26 +395,30 @@ const Matters: React.FC = () => {
 
             {/* Actions Footer */}
             <div className="p-4 border-t border-gray-100 bg-gray-50 flex gap-2">
-              <button
-                className="flex-1 py-2 bg-white border border-gray-200 rounded-lg text-sm font-bold text-gray-600 hover:bg-gray-100 shadow-sm"
-                onClick={() => {
-                  setEditData(selectedMatter);
-                  setShowModal(true);
-                }}
-              >
-                Edit Matter
-              </button>
-              <button
-                className="py-2 px-3 bg-white border border-red-200 text-red-600 rounded-lg text-sm font-bold hover:bg-red-50 shadow-sm flex items-center gap-2"
-                onClick={() => {
-                  if (selectedMatter) {
-                    deleteMatter(selectedMatter.id);
-                    setSelectedMatter(null);
-                  }
-                }}
-              >
-                <Trash className="w-4 h-4" /> Delete
-              </button>
+              <Can perform="matter.edit">
+                <button
+                  className="flex-1 py-2 bg-white border border-gray-200 rounded-lg text-sm font-bold text-gray-600 hover:bg-gray-100 shadow-sm"
+                  onClick={() => {
+                    setEditData(selectedMatter);
+                    setShowModal(true);
+                  }}
+                >
+                  Edit Matter
+                </button>
+              </Can>
+              <Can perform="matter.delete">
+                <button
+                  className="py-2 px-3 bg-white border border-red-200 text-red-600 rounded-lg text-sm font-bold hover:bg-red-50 shadow-sm flex items-center gap-2"
+                  onClick={() => {
+                    if (selectedMatter) {
+                      deleteMatter(selectedMatter.id);
+                      setSelectedMatter(null);
+                    }
+                  }}
+                >
+                  <Trash className="w-4 h-4" /> Delete
+                </button>
+              </Can>
               <button
                 className="flex-1 py-2 bg-slate-800 text-white rounded-lg text-sm font-bold hover:bg-slate-900 shadow-lg"
                 onClick={() => setShowDocs(true)}
@@ -436,6 +449,7 @@ const Matters: React.FC = () => {
                   status: editData.status,
                   billableRate: editData.billableRate,
                   trustBalance: editData.trustBalance,
+                  courtType: editData.courtType,
                 });
                 setShowModal(false);
                 setEditData(null);
@@ -444,6 +458,10 @@ const Matters: React.FC = () => {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">{t('case_name')}</label>
                 <input required type="text" className="w-full border border-gray-300 rounded-lg p-2.5 text-sm bg-white text-slate-900 focus:ring-2 focus:ring-primary-500 outline-none" value={editData ? editData.name || '' : formData.name} onChange={e => editData ? setEditData({ ...editData, name: e.target.value }) : setFormData({ ...formData, name: e.target.value })} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('case_number') || 'Dosya No'}</label>
+                <input type="text" className="w-full border border-gray-300 rounded-lg p-2.5 text-sm bg-white text-slate-900 focus:ring-2 focus:ring-primary-500 outline-none" placeholder="2024/123 vb." value={editData ? editData.caseNumber || '' : formData.caseNumber} onChange={e => editData ? setEditData({ ...editData, caseNumber: e.target.value }) : setFormData({ ...formData, caseNumber: e.target.value })} />
               </div>
               {!editData && (
                 <div>
@@ -498,6 +516,19 @@ const Matters: React.FC = () => {
                   <select className="w-full border border-gray-300 rounded-lg p-2.5 text-sm bg-white text-slate-900 focus:ring-2 focus:ring-primary-500 outline-none" value={editData ? editData.practiceArea : formData.practiceArea} onChange={e => editData ? setEditData({ ...editData, practiceArea: e.target.value as PracticeArea }) : setFormData({ ...formData, practiceArea: e.target.value as PracticeArea })}>
                     {Object.values(PracticeArea).map(pa => <option key={pa} value={pa}>{pa}</option>)}
                   </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('court_type') || 'Mahkeme Türü'}</label>
+                  <input list="court-types" className="w-full border border-gray-300 rounded-lg p-2.5 text-sm bg-white text-slate-900 focus:ring-2 focus:ring-primary-500 outline-none" value={editData ? editData.courtType || '' : formData.courtType} onChange={e => editData ? setEditData({ ...editData, courtType: e.target.value }) : setFormData({ ...formData, courtType: e.target.value })} />
+                  <datalist id="court-types">
+                    <option value="Ağır Ceza Mahkemesi" />
+                    <option value="Asliye Ceza Mahkemesi" />
+                    <option value="Asliye Hukuk Mahkemesi" />
+                    <option value="Aile Mahkemesi" />
+                    <option value="İş Mahkemesi" />
+                    <option value="Sulh Hukuk Mahkemesi" />
+                    <option value="İcra Hukuk Mahkemesi" />
+                  </datalist>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">{t('fee_structure')}</label>

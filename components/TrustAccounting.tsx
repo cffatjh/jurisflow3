@@ -129,6 +129,42 @@ const TrustAccounting: React.FC<TrustAccountingProps> = ({ matterId, matterName,
                 </div>
             </div>
 
+            {/* Warnings */}
+            {(() => {
+                const totalDeposited = transactions
+                    .filter(t => (t.type as string).toLowerCase() === 'deposit')
+                    .reduce((sum, t) => sum + t.amount, 0);
+
+                if (currentBalance < 0) {
+                    return (
+                        <div className="mx-6 mt-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
+                            <AlertCircle className="w-6 h-6 text-red-600 shrink-0" />
+                            <div>
+                                <h4 className="font-bold text-red-800">Negatif Bakiye Uyarısı</h4>
+                                <p className="text-sm text-red-700 mt-1">
+                                    Emanet hesabı bakiyesi negatiftir ({formatCurrency(currentBalance)}). Lütfen en kısa sürede para yatırma işlemi yapın.
+                                </p>
+                            </div>
+                        </div>
+                    );
+                }
+
+                if (totalDeposited > 0 && currentBalance / totalDeposited <= 0.15) {
+                    return (
+                        <div className="mx-6 mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3">
+                            <AlertCircle className="w-6 h-6 text-amber-600 shrink-0" />
+                            <div>
+                                <h4 className="font-bold text-amber-800">Düşük Bakiye Uyarısı</h4>
+                                <p className="text-sm text-amber-700 mt-1">
+                                    Bakiye, toplam yatırılan tutarın %15'inin altındadır. ({formatCurrency(currentBalance)} / {formatCurrency(totalDeposited)})
+                                </p>
+                            </div>
+                        </div>
+                    );
+                }
+                return null;
+            })()}
+
             {/* Quick Actions */}
             <div className="p-4 bg-gray-50 border-b border-gray-200">
                 <button

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Plus, Edit, Trash2, Mail, Phone, Calendar, Clock, CheckSquare, RefreshCw } from './Icons';
+import { Can } from './common/Can';
 import { Employee, EmployeeRole, EmployeeStatus } from '../types';
 import { api } from '../services/api';
 import { useTranslation } from '../contexts/LanguageContext';
@@ -33,14 +34,16 @@ const Employees: React.FC = () => {
         SECRETARY: t('role_secretary') || 'Sekreter',
         PARALEGAL: t('role_paralegal') || 'Paralegal',
         INTERN_LAWYER: t('role_intern_lawyer') || 'Stajyer Avukat',
-        ACCOUNTANT: t('role_accountant') || 'Muhasebeci'
+        ACCOUNTANT: t('role_accountant') || 'Muhasebeci',
+        ATTORNEY: t('role_attorney') || 'Avukat'
     };
 
     const roleIcons: Record<EmployeeRole, string> = {
         SECRETARY: '👩‍💼',
         PARALEGAL: '📋',
         INTERN_LAWYER: '⚖️',
-        ACCOUNTANT: '💰'
+        ACCOUNTANT: '💰',
+        ATTORNEY: '👨‍⚖️'
     };
 
     const statusLabels: Record<EmployeeStatus, string> = {
@@ -86,7 +89,10 @@ const Employees: React.FC = () => {
                     hourlyRate: formData.hourlyRate ? parseFloat(formData.hourlyRate) : undefined,
                     salary: formData.salary ? parseFloat(formData.salary) : undefined
                 };
-                await api.createEmployee(createData);
+                const res = await api.createEmployee(createData);
+                if (res && res.tempPassword) {
+                    alert(`Çalışan başarıyla oluşturuldu.\n\nGEÇİCİ ŞİFRE: ${res.tempPassword}\n\nLütfen bu şifreyi çalışanla paylaşın. Bu şifre tekrar görüntülenemez.`);
+                }
             }
             setShowForm(false);
             setEditingEmployee(null);
@@ -185,13 +191,15 @@ const Employees: React.FC = () => {
                         <h2 className="text-2xl font-bold text-gray-900">{t('employees_title') || 'Çalışan Yönetimi'}</h2>
                         <p className="text-gray-600 mt-1">{t('employees_subtitle') || 'Sekreter, stajyer ve diğer personeli yönetin.'}</p>
                     </div>
-                    <button
-                        onClick={() => { setShowForm(true); setEditingEmployee(null); resetForm(); }}
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                    >
-                        <Plus className="w-5 h-5" />
-                        {t('add_employee') || '+ Çalışan Ekle'}
-                    </button>
+                    <Can perform="user.manage">
+                        <button
+                            onClick={() => { setShowForm(true); setEditingEmployee(null); resetForm(); }}
+                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                            <Plus className="w-5 h-5" />
+                            {t('add_employee') || '+ Çalışan Ekle'}
+                        </button>
+                    </Can>
                 </div>
 
                 {/* Role Summary */}
@@ -427,25 +435,27 @@ const Employees: React.FC = () => {
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <button
-                                            onClick={() => handleResetPassword(emp.id)}
-                                            className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                                            title={t('reset_password') || 'Şifre Sıfırla'}
-                                        >
-                                            <RefreshCw className="w-5 h-5" />
-                                        </button>
-                                        <button
-                                            onClick={() => openEditForm(emp)}
-                                            className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                                        >
-                                            <Edit className="w-5 h-5" />
-                                        </button>
-                                        <button
-                                            onClick={() => handleDelete(emp.id)}
-                                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                        >
-                                            <Trash2 className="w-5 h-5" />
-                                        </button>
+                                        <Can perform="user.manage">
+                                            <button
+                                                onClick={() => handleResetPassword(emp.id)}
+                                                className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                                                title={t('reset_password') || 'Şifre Sıfırla'}
+                                            >
+                                                <RefreshCw className="w-5 h-5" />
+                                            </button>
+                                            <button
+                                                onClick={() => openEditForm(emp)}
+                                                className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                                            >
+                                                <Edit className="w-5 h-5" />
+                                            </button>
+                                            <button
+                                                onClick={() => handleDelete(emp.id)}
+                                                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                            >
+                                                <Trash2 className="w-5 h-5" />
+                                            </button>
+                                        </Can>
                                     </div>
                                 </div>
                             </div>

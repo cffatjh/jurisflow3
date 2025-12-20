@@ -36,7 +36,22 @@ const MOCK_LEADS: Lead[] = [
 ];
 
 const MOCK_INVOICES: Invoice[] = [
-  { id: 'inv1', number: 'INV-2024-001', client: MOCK_CLIENTS[0], amount: 15400, dueDate: new Date(Date.now() + 86400000 * 10).toISOString(), status: 'SENT' as any }
+  {
+    id: 'inv1',
+    number: 'INV-2024-001',
+    client: MOCK_CLIENTS[0],
+    clientId: MOCK_CLIENTS[0].id,
+    amount: 15400,
+    dueDate: new Date(Date.now() + 86400000 * 10).toISOString(),
+    status: 'SENT' as any,
+    subtotal: 14000,
+    taxAmount: 1400,
+    discount: 0,
+    amountPaid: 0,
+    balance: 15400,
+    issueDate: new Date().toISOString(),
+    createdAt: new Date().toISOString()
+  }
 ];
 
 interface DataContextType {

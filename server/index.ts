@@ -15,6 +15,7 @@ import path from 'path';
 import fs from 'fs';
 import { errorHandler, asyncHandler, logger } from './middleware/errorHandler';
 import { auditLog, createAuditLog, getUserInfoFromRequest } from './middleware/auditLog';
+import { checkPermission } from './middleware/rbac';
 import { sendEmail, emailTemplates } from './services/emailService';
 import { generateInvoicePDF } from './services/pdfService';
 import { uploadSingle, uploadMultiple } from './middleware/fileUpload';
@@ -583,8 +584,10 @@ app.post('/api/login', asyncHandler(async (req: any, res: any) => {
       fs.appendFileSync(logPath, JSON.stringify(logEntry8) + '\n');
     } catch (e) { }
 
+    const effectiveRole = user.employeeRole || user.role;
+
     const token = jwt.sign(
-      { sub: user.id, email: user.email, role: user.role },
+      { sub: user.id, email: user.email, role: effectiveRole },
       JWT_SECRET,
       { expiresIn: '7d' }
     );
@@ -592,7 +595,7 @@ app.post('/api/login', asyncHandler(async (req: any, res: any) => {
     const logEntry9 = {
       location: 'server/index.ts:login',
       message: 'Login - token generated',
-      data: { email, userId: user.id, hasToken: !!token },
+      data: { email, userId: user.id, role: effectiveRole, hasToken: !!token },
       timestamp: Date.now(),
       sessionId: 'debug-session',
       runId: 'run1',
@@ -650,7 +653,7 @@ app.post('/api/login', asyncHandler(async (req: any, res: any) => {
         id: user.id,
         name: user.name,
         email: user.email,
-        role: user.role,
+        role: effectiveRole,
         initials: user.name
           .split(' ')
           .map((p) => p[0])
@@ -763,7 +766,7 @@ app.get('/api/matters', async (req, res) => {
   }
 });
 
-app.post('/api/matters', async (req, res) => {
+app.post('/api/matters', checkPermission('matter.create'), async (req, res) => {
   try {
     const data = req.body; // Partial<Matter> geliyor
 
@@ -826,7 +829,7 @@ app.post('/api/matters', async (req, res) => {
   }
 });
 
-app.put('/api/matters/:id', async (req, res) => {
+app.put('/api/matters/:id', checkPermission('matter.edit'), async (req, res) => {
   try {
     const id = req.params.id;
     const data = req.body;
@@ -850,7 +853,7 @@ app.put('/api/matters/:id', async (req, res) => {
   }
 });
 
-app.delete('/api/matters/:id', async (req, res) => {
+app.delete('/api/matters/:id', checkPermission('matter.delete'), async (req, res) => {
   try {
     const id = req.params.id;
     await prisma.matter.delete({ where: { id } });
@@ -899,6 +902,7 @@ app.post('/api/tasks', async (req, res) => {
         matterId: data.matterId ?? null,
         assignedTo: data.assignedTo ?? null,
         templateId: data.templateId ?? null,
+        // @ts-ignore
         userId: req.user?.id || null, // Set owner
       },
     });
@@ -1126,6 +1130,7 @@ app.post('/api/time-entries', async (req, res) => {
         date: data.date ? new Date(data.date) : new Date(),
         billed: data.billed ?? false,
         type: data.type ?? 'time',
+        // @ts-ignore
         userId: req.user?.id || null, // Set owner
       },
     });
@@ -1287,6 +1292,7 @@ app.post('/api/events', async (req, res) => {
         date: data.date ? new Date(data.date) : new Date(),
         type: data.type,
         matterId: data.matterId ?? null,
+        // @ts-ignore
         userId: req.user?.id || null, // Set owner
       },
     });
@@ -1343,6 +1349,7 @@ app.post('/api/expenses', async (req, res) => {
         date: data.date ? new Date(data.date) : new Date(),
         billed: data.billed || false,
         type: data.type ?? 'expense',
+        // @ts-ignore
         userId: req.user?.id || null, // Set owner
       },
       include: { matter: true }
@@ -1393,7 +1400,7 @@ app.get('/api/invoices/:id', asyncHandler(async (req: any, res: any) => {
 }));
 
 // Create invoice with line items
-app.post('/api/invoices', asyncHandler(async (req: any, res: any) => {
+app.post('/api/invoices', checkPermission('billing.manage'), asyncHandler(async (req: any, res: any) => {
   const { number, clientId, matterId, dueDate, lineItems, notes, terms, taxRate } = req.body;
 
   // Calculate totals from line items
@@ -1447,7 +1454,7 @@ app.post('/api/invoices', asyncHandler(async (req: any, res: any) => {
 }));
 
 // Update invoice
-app.put('/api/invoices/:id', asyncHandler(async (req: any, res: any) => {
+app.put('/api/invoices/:id', checkPermission('billing.manage'), asyncHandler(async (req: any, res: any) => {
   const { notes, terms, dueDate, taxRate } = req.body;
 
   const invoice = await prisma.invoice.findUnique({
@@ -1486,7 +1493,7 @@ app.put('/api/invoices/:id', asyncHandler(async (req: any, res: any) => {
 }));
 
 // Delete invoice (only drafts)
-app.delete('/api/invoices/:id', asyncHandler(async (req: any, res: any) => {
+app.delete('/api/invoices/:id', checkPermission('billing.manage'), asyncHandler(async (req: any, res: any) => {
   const invoice = await prisma.invoice.findUnique({ where: { id: req.params.id } });
 
   if (!invoice) {
@@ -1504,7 +1511,7 @@ app.delete('/api/invoices/:id', asyncHandler(async (req: any, res: any) => {
 // ===================== INVOICE WORKFLOW =====================
 
 // Approve invoice (DRAFT -> APPROVED)
-app.post('/api/invoices/:id/approve', asyncHandler(async (req: any, res: any) => {
+app.post('/api/invoices/:id/approve', checkPermission('billing.approve'), asyncHandler(async (req: any, res: any) => {
   const invoice = await prisma.invoice.findUnique({ where: { id: req.params.id } });
 
   if (!invoice) {
@@ -3311,7 +3318,7 @@ app.put('/api/documents/:id', asyncHandler(async (req: any, res: any) => {
 }));
 
 // Delete document
-app.delete('/api/documents/:id', asyncHandler(async (req: any, res: any) => {
+app.delete('/api/documents/:id', checkPermission('document.delete'), asyncHandler(async (req: any, res: any) => {
   const { id } = req.params;
   const document = await prisma.document.findUnique({ where: { id } });
 
@@ -3539,7 +3546,7 @@ app.get('/api/matters/:matterId/trust', asyncHandler(async (req, res) => {
 }));
 
 // Create trust transaction
-app.post('/api/matters/:matterId/trust', asyncHandler(async (req, res) => {
+app.post('/api/matters/:matterId/trust', checkPermission('trust.manage'), asyncHandler(async (req, res) => {
   const { matterId } = req.params;
   const { type, amount, description, reference } = req.body;
 
@@ -3552,15 +3559,228 @@ app.post('/api/matters/:matterId/trust', asyncHandler(async (req, res) => {
   else if (type === 'refund') newBalance -= amount;
 
   const transaction = await prisma.trustTransaction.create({
-    data: { matterId, type, amount, description, reference, balance: newBalance, createdBy: req.adminId },
+    data: {
+      matterId,
+      type,
+      amount,
+      description,
+      reference,
+      balanceBefore: matter.trustBalance,
+      balanceAfter: newBalance,
+      createdBy: req.adminId
+    },
   });
 
   await prisma.matter.update({ where: { id: matterId }, data: { trustBalance: newBalance } });
+
+  // Calculate total deposits to check for 15% threshold
+  const deposits = await prisma.trustTransaction.aggregate({
+    where: { matterId, type: 'DEPOSIT' },
+    _sum: { amount: true }
+  });
+  const totalDeposited = (deposits._sum.amount || 0); // Aggregate already includes the current deposit if type is 'deposit'
+
+  // Notification Logic
+  if (totalDeposited > 0) {
+    const ratio = newBalance / totalDeposited;
+    if (ratio <= 0.15 && ratio > 0) {
+      // Low balance warning
+      await prisma.notification.create({
+        data: {
+          userId: req.adminId, // Notify admin/attorney
+          title: 'Low Trust Balance Warning',
+          message: `Trust balance for matter is below 15% ($${newBalance.toFixed(2)} / $${totalDeposited.toFixed(2)})`,
+          type: 'warning',
+          link: `/matters/${matterId}?tab=trust`
+        }
+      });
+    } else if (newBalance <= 0) {
+      // Negative/Zero balance warning
+      await prisma.notification.create({
+        data: {
+          userId: req.adminId,
+          title: 'Trust Balance Depleted',
+          message: `Trust balance for matter is zero or negative ($${newBalance.toFixed(2)})`,
+          type: 'error',
+          link: `/matters/${matterId}?tab=trust`
+        }
+      });
+    }
+  }
 
   const userInfo = getUserInfoFromRequest(req);
   await createAuditLog({ ...userInfo, action: 'CREATE', entityType: 'TRUST_TRANSACTION', entityId: transaction.id, details: `${type} $${amount}` });
 
   res.status(201).json(transaction);
+}));
+
+// ===================== DOCUMENTS =====================
+
+// Delete document
+app.delete('/api/documents/:id', checkPermission('document.delete'), asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  // Potentially add logic here to delete the actual file from storage if applicable
+  await prisma.document.delete({
+    where: { id },
+  });
+  const userInfo = getUserInfoFromRequest(req);
+  await createAuditLog({ ...userInfo, action: 'DELETE', entityType: 'DOCUMENT', entityId: id, details: `Document ${id} deleted` });
+  res.status(204).send();
+}));
+
+// ===================== EMPLOYEES =====================
+
+// Get all employees
+app.get('/api/employees', asyncHandler(async (req, res) => {
+  const employees = await prisma.employee.findMany({
+    orderBy: { createdAt: 'desc' }
+  });
+  res.json(employees);
+}));
+
+// Get single employee
+app.get('/api/employees/:id', asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const employee = await prisma.employee.findUnique({ where: { id } });
+  if (!employee) return res.status(404).json({ message: 'Employee not found' });
+  res.json(employee);
+}));
+
+// Create employee
+app.post('/api/employees', checkPermission('user.manage'), asyncHandler(async (req, res) => {
+  const data = req.body;
+  // If password provided, hash it for user account creation handled by trigger or separate logic?
+  // For simplicity, we create the employee record. If user account is needed, it should be linked.
+  // The frontend sends password, so we might want to create a User account too.
+
+  let userId = undefined;
+  let tempPassword = undefined;
+
+  // Auto-create user account logic
+  if (data.email) {
+    // If password provided use it, otherwise generate one
+    const rawPassword = data.password || Math.random().toString(36).slice(-8);
+
+    // Only create user if password provided OR we generated one (always true now if email exists)
+    if (rawPassword) {
+      const passwordHash = await bcrypt.hash(rawPassword, 10);
+      try {
+        const user = await prisma.user.create({
+          data: {
+            email: data.email,
+            name: `${data.firstName} ${data.lastName}`,
+            role: 'Employee', // General role
+            employeeRole: data.role, // Specific role (PARALEGAL etc.)
+            passwordHash
+          }
+        });
+        userId = user.id;
+        if (!data.password) {
+          tempPassword = rawPassword; // Return this to frontend
+        }
+      } catch (userErr: any) {
+        if (userErr.code === 'P2002') {
+          // User already exists, maybe link it?
+          const existing = await prisma.user.findUnique({ where: { email: data.email } });
+          if (existing) userId = existing.id;
+        } else {
+          console.error('Failed to create user account for employee:', userErr);
+        }
+      }
+    }
+  }
+
+  const employee = await prisma.employee.create({
+    data: {
+      firstName: data.firstName,
+      lastName: data.lastName,
+      email: data.email,
+      phone: data.phone,
+      mobile: data.mobile,
+      role: data.role,
+      status: data.status || 'ACTIVE',
+      hireDate: data.hireDate ? new Date(data.hireDate) : undefined,
+      hourlyRate: data.hourlyRate,
+      salary: data.salary,
+      notes: data.notes,
+      address: data.address,
+      emergencyContact: data.emergencyContact,
+      emergencyPhone: data.emergencyPhone,
+      userId // Link to system user if created
+    }
+  });
+
+  const userInfo = getUserInfoFromRequest(req);
+  await createAuditLog({ ...userInfo, action: 'CREATE', entityType: 'EMPLOYEE', entityId: employee.id, details: `Employee ${employee.firstName} ${employee.lastName} created` });
+
+  res.status(201).json({ ...employee, tempPassword });
+}));
+
+// Update employee
+app.put('/api/employees/:id', checkPermission('user.manage'), asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const data = req.body;
+
+  const employee = await prisma.employee.update({
+    where: { id },
+    data: {
+      firstName: data.firstName,
+      lastName: data.lastName,
+      email: data.email,
+      phone: data.phone,
+      mobile: data.mobile,
+      role: data.role,
+      status: data.status,
+      hireDate: data.hireDate ? new Date(data.hireDate) : undefined,
+      hourlyRate: data.hourlyRate,
+      salary: data.salary,
+      notes: data.notes,
+      address: data.address,
+      emergencyContact: data.emergencyContact,
+      emergencyPhone: data.emergencyPhone
+    }
+  });
+
+  const userInfo = getUserInfoFromRequest(req);
+  await createAuditLog({ ...userInfo, action: 'UPDATE', entityType: 'EMPLOYEE', entityId: id, details: 'Employee updated' });
+
+  res.json(employee);
+}));
+
+// Delete employee
+app.delete('/api/employees/:id', checkPermission('user.manage'), asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  await prisma.employee.delete({ where: { id } });
+
+  const userInfo = getUserInfoFromRequest(req);
+  await createAuditLog({ ...userInfo, action: 'DELETE', entityType: 'EMPLOYEE', entityId: id, details: 'Employee deleted' });
+
+  res.status(204).send();
+}));
+
+// Reset employee password
+app.post('/api/employees/:id/reset-password', checkPermission('user.manage'), asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const employee = await prisma.employee.findUnique({ where: { id } });
+  if (!employee || !employee.userId) {
+    return res.status(404).json({ message: 'Employee or linked user account not found' });
+  }
+
+  // Generate random password
+  const tempPassword = Math.random().toString(36).slice(-8);
+  const passwordHash = await bcrypt.hash(tempPassword, 10);
+
+  await prisma.user.update({
+    where: { id: employee.userId },
+    data: { passwordHash }
+  });
+
+  // Ideally send email here
+
+  const userInfo = getUserInfoFromRequest(req);
+  await createAuditLog({ ...userInfo, action: 'UPDATE', entityType: 'EMPLOYEE', entityId: id, details: 'Password reset' });
+
+  res.json({ message: 'Password reset successfully', tempPassword });
 }));
 
 // ===================== WORKFLOWS =====================

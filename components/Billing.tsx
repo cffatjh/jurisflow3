@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { CreditCard, Plus, X, Search, Filter, Download, Edit, Trash2, CheckCircle, AlertCircle, Clock, DollarSign, FileText, Send, AlertTriangle } from './Icons';
+import { Can } from './common/Can';
 import { useTranslation } from '../contexts/LanguageContext';
 import { useData } from '../contexts/DataContext';
 import { Invoice, InvoiceStatus } from '../types';
@@ -189,7 +190,7 @@ const Billing: React.FC = () => {
             client: invoicePreview.matter.client,
             amount: invoicePreview.total,
             dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
-            status: 'Draft',
+            status: 'DRAFT',
             lineItems: invoicePreview.lineItems,
             notes: invoiceNotes,
             terms: invoiceTerms,
@@ -237,7 +238,7 @@ const Billing: React.FC = () => {
 
         const updatedPayments = [...(selectedInvoice.payments || []), newPayment];
         const totalPaid = updatedPayments.reduce((sum, p) => sum + p.amount, 0);
-        const newStatus: any = totalPaid >= selectedInvoice.amount ? 'Paid' : 'Partial';
+        const newStatus: any = totalPaid >= selectedInvoice.amount ? 'PAID' : 'PARTIALLY_PAID';
 
         updateInvoice(selectedInvoice.id, {
             payments: updatedPayments,
@@ -269,7 +270,7 @@ const Billing: React.FC = () => {
         });
         if (!ok) return;
 
-        updateInvoice(invoice.id, { status: 'Sent' });
+        updateInvoice(invoice.id, { status: 'SENT' });
         toast.success('Invoice sent to client!');
     };
 
@@ -326,13 +327,15 @@ const Billing: React.FC = () => {
                         <h1 className="text-2xl font-bold text-slate-800">{t('billing_title')}</h1>
                         <p className="text-sm text-gray-500 mt-1">{t('billing_subtitle')}</p>
                     </div>
-                    <button
-                        onClick={() => setShowCreateModal(true)}
-                        className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 text-white rounded-lg text-sm font-bold hover:bg-slate-900 transition-colors shadow-sm"
-                    >
-                        <Plus className="w-4 h-4" />
-                        {t('create_invoice')}
-                    </button>
+                    <Can perform="billing.manage">
+                        <button
+                            onClick={() => setShowCreateModal(true)}
+                            className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 text-white rounded-lg text-sm font-bold hover:bg-slate-900 transition-colors shadow-sm"
+                        >
+                            <Plus className="w-4 h-4" />
+                            {t('create_invoice')}
+                        </button>
+                    </Can>
                 </div>
             </div>
 
@@ -533,26 +536,30 @@ const Billing: React.FC = () => {
                                                 </td>
                                                 <td className="px-6 py-4 text-right">
                                                     <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
-                                                        {inv.status === 'Draft' && (
-                                                            <button
-                                                                onClick={() => handleSendInvoice(extInv)}
-                                                                className="p-2 hover:bg-blue-50 rounded-lg text-blue-600"
-                                                                title="Send Invoice"
-                                                            >
-                                                                <Send className="w-4 h-4" />
-                                                            </button>
+                                                        {inv.status === 'DRAFT' && (
+                                                            <Can perform="billing.manage">
+                                                                <button
+                                                                    onClick={() => handleSendInvoice(extInv)}
+                                                                    className="p-2 hover:bg-blue-50 rounded-lg text-blue-600"
+                                                                    title="Send Invoice"
+                                                                >
+                                                                    <Send className="w-4 h-4" />
+                                                                </button>
+                                                            </Can>
                                                         )}
-                                                        {inv.status !== 'Paid' && (
-                                                            <button
-                                                                onClick={() => {
-                                                                    setSelectedInvoice(extInv);
-                                                                    setShowPaymentModal(true);
-                                                                }}
-                                                                className="p-2 hover:bg-green-50 rounded-lg text-green-600"
-                                                                title="Record Payment"
-                                                            >
-                                                                <DollarSign className="w-4 h-4" />
-                                                            </button>
+                                                        {inv.status !== 'PAID' && (
+                                                            <Can perform="billing.manage">
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setSelectedInvoice(extInv);
+                                                                        setShowPaymentModal(true);
+                                                                    }}
+                                                                    className="p-2 hover:bg-green-50 rounded-lg text-green-600"
+                                                                    title="Record Payment"
+                                                                >
+                                                                    <DollarSign className="w-4 h-4" />
+                                                                </button>
+                                                            </Can>
                                                         )}
                                                         <button
                                                             onClick={() => handleDeleteInvoice(extInv)}
@@ -860,7 +867,7 @@ const Billing: React.FC = () => {
                                 Delete Invoice
                             </button>
                             <div className="flex gap-2">
-                                {(selectedInvoice.status === 'Draft' || selectedInvoice.status === 'DRAFT') && (
+                                {(selectedInvoice.status === 'DRAFT' || selectedInvoice.status === 'DRAFT') && (
                                     <>
                                         <button
                                             onClick={async () => {
@@ -888,7 +895,7 @@ const Billing: React.FC = () => {
                                         Send Invoice
                                     </button>
                                 )}
-                                {selectedInvoice.status !== 'Paid' && (
+                                {selectedInvoice.status !== 'PAID' && (
                                     <button
                                         onClick={() => {
                                             setShowDetailModal(false);

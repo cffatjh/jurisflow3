@@ -185,7 +185,7 @@ export const api = {
         return fetchJson(`/documents${query}`);
     },
     deleteDocument: (id: string) => fetchJson(`/documents/${id}`, { method: 'DELETE' }),
-    updateDocument: (id: string, data: { matterId?: string | null; description?: string | null; tags?: string[] | string | null }) =>
+    updateDocument: (id: string, data: { matterId?: string | null; description?: string | null; tags?: string[] | string | null; category?: string | null }) =>
         fetchJson(`/documents/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     bulkAssignDocuments: (data: { ids: string[]; matterId?: string | null }) =>
         fetchJson('/documents/bulk-assign', { method: 'PUT', body: JSON.stringify(data) }),

@@ -119,6 +119,7 @@ export const translations = {
     status_trial: "Trial",
     status_pending: "Pending",
     status_closed: "Closed",
+    court_type: "Court Type",
 
     // Tasks (Kanban)
     tasks_title: "Task Management",
@@ -222,6 +223,7 @@ export const translations = {
     employees_title: "Staff Management",
     employees_subtitle: "Manage secretaries, paralegals, and other staff members.",
     add_employee: "+ Add Staff",
+    role_attorney: "Attorney",
     role_secretary: "Secretary",
     role_paralegal: "Paralegal",
     role_intern_lawyer: "Intern Lawyer",
@@ -359,6 +361,7 @@ export const translations = {
     status_trial: "Duruşma",
     status_pending: "Beklemede",
     status_closed: "Kapalı",
+    court_type: "Mahkeme Türü",
 
     // Tasks (Kanban)
     tasks_title: "Görev Yönetimi",
@@ -462,6 +465,7 @@ export const translations = {
     employees_title: "Çalışan Yönetimi",
     employees_subtitle: "Sekreter, stajyer ve diğer personeli yönetin.",
     add_employee: "+ Çalışan Ekle",
+    role_attorney: "Avukat",
     role_secretary: "Sekreter",
     role_paralegal: "Paralegal",
     role_intern_lawyer: "Stajyer Avukat",

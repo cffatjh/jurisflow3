@@ -58,6 +58,7 @@ model Matter {
   caseNumber          String
   name                String
   practiceArea        String
+  courtType           String?       // e.g. High Criminal, Family, etc.
   status              String        // Open | Closed
   feeStructure        String        // Hourly | Fixed
   openDate            DateTime      @default(now())
@@ -325,6 +326,7 @@ enum EmployeeRole {
   PARALEGAL       // Paralegal
   INTERN_LAWYER   // Stajyer Avukat
   ACCOUNTANT      // Muhasebeci
+  ATTORNEY        // Avukat
 }
 
 // ------------------------------
@@ -452,6 +454,7 @@ model Document {
   uploadedBy  String?  // User ID who uploaded
   version     Int      @default(1)
   groupKey     String? // Basic versioning key (e.g. matterId+fileName)
+  category     String? // Contract, Notice, Court Order, etc.
   description String?
   tags        String?  // JSON string array of tags
   textContent String?  // Extracted text for search (PDF/text)
