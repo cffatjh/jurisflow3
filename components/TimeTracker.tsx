@@ -35,8 +35,23 @@ const TimeTracker = () => {
                 totalSeconds += Math.floor((Date.now() - activeTimer.startTime) / 1000);
             }
             setTimerDisplay(totalSeconds);
+            // Sync rate if it exists in timer
+            if (activeTimer.rate) {
+                setHourlyRate(activeTimer.rate);
+            }
         }
-    }, [activeTimer?.startTime, activeTimer?.elapsed]); // Re-sync on significant changes
+    }, [activeTimer?.startTime, activeTimer?.elapsed]);
+
+    // Update rate when matter is selected (if no active timer to avoid overwriting running timer rate)
+    useEffect(() => {
+        if (!activeTimer && selectedMatterId) {
+            const m = matters.find(matter => matter.id === selectedMatterId);
+            if (m && m.billableRate) {
+                setHourlyRate(m.billableRate);
+            }
+        }
+    }, [selectedMatterId, matters, activeTimer]);
+
 
     // Expense Form State
     const [expenseAmount, setExpenseAmount] = useState('');
@@ -120,7 +135,7 @@ const TimeTracker = () => {
     const handleToggleTimer = () => {
         if (!activeTimer) {
             // START NEW TIMER
-            startTimer(selectedMatterId || undefined, description);
+            startTimer(selectedMatterId || undefined, description, Number(hourlyRate) || 0);
         } else {
             if (activeTimer.isRunning) {
                 pauseTimer();

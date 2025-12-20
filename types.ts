@@ -571,4 +571,5 @@ export interface ActiveTimer {
   description: string;
   isRunning: boolean;
   elapsed: number; // saved elapsed time if paused
+  rate?: number;
 }

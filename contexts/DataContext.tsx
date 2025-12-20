@@ -70,7 +70,7 @@ interface DataContextType {
 
   // Timer Actions
   activeTimer: ActiveTimer | null;
-  startTimer: (matterId: string | undefined, description: string) => void;
+  startTimer: (matterId: string | undefined, description: string, rate?: number) => void;
   stopTimer: () => Promise<void>;
   updateTimer: (elapsed: number) => void;
   pauseTimer: () => void;
@@ -150,13 +150,14 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [activeTimer]);
 
-  const startTimer = (matterId: string | undefined, description: string) => {
+  const startTimer = (matterId: string | undefined, description: string, rate?: number) => {
     const newTimer: ActiveTimer = {
       startTime: Date.now(),
       matterId,
       description,
       isRunning: true,
-      elapsed: 0
+      elapsed: 0,
+      rate
     };
     setActiveTimer(newTimer);
   };
@@ -205,7 +206,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       description: activeTimer.description,
       duration: minutes,
       date: new Date().toISOString(),
-      rate: 0, // Should fetch rate from matter/user
+      rate: activeTimer.rate || 0, // Use stored rate or default to 0
       billed: false,
       type: 'time'
     });
