@@ -3750,6 +3750,20 @@ app.put('/api/employees/:id', checkPermission('user.manage'), asyncHandler(async
 // Delete employee
 app.delete('/api/employees/:id', checkPermission('user.manage'), asyncHandler(async (req, res) => {
   const { id } = req.params;
+
+  // 1. Remove assignment from Tasks
+  await prisma.task.updateMany({
+    where: { assignedEmployeeId: id },
+    data: { assignedEmployeeId: null }
+  });
+
+  // 2. Remove supervisor role from other Employees
+  await prisma.employee.updateMany({
+    where: { supervisorId: id },
+    data: { supervisorId: null }
+  });
+
+  // 3. Delete the Employee
   await prisma.employee.delete({ where: { id } });
 
   const userInfo = getUserInfoFromRequest(req);

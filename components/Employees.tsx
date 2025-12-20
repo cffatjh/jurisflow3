@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Plus, Edit, Trash2, Mail, Phone, Calendar, Clock, CheckSquare, RefreshCw } from './Icons';
 import { Can } from './common/Can';
+import { ConfirmDialog } from './common/ConfirmDialog';
+import { toast } from './Toast';
 import { Employee, EmployeeRole, EmployeeStatus } from '../types';
 import { api } from '../services/api';
 import { useTranslation } from '../contexts/LanguageContext';
@@ -12,6 +14,10 @@ const Employees: React.FC = () => {
     const [showForm, setShowForm] = useState(false);
     const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
     const [selectedRole, setSelectedRole] = useState<string>('all');
+
+    // Delete Confirmation State
+    const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+    const [employeeToDelete, setEmployeeToDelete] = useState<string | null>(null);
 
     const [formData, setFormData] = useState({
         firstName: '',
@@ -83,6 +89,7 @@ const Employees: React.FC = () => {
                     salary: formData.salary ? parseFloat(formData.salary) : undefined
                 };
                 await api.updateEmployee(editingEmployee.id, updateData);
+                toast.success('Çalışan başarıyla güncellendi.');
             } else {
                 const createData = {
                     ...formData,
@@ -93,6 +100,7 @@ const Employees: React.FC = () => {
                 if (res && res.tempPassword) {
                     alert(`Çalışan başarıyla oluşturuldu.\n\nGEÇİCİ ŞİFRE: ${res.tempPassword}\n\nLütfen bu şifreyi çalışanla paylaşın. Bu şifre tekrar görüntülenemez.`);
                 }
+                toast.success('Çalışan başarıyla eklendi.');
             }
             setShowForm(false);
             setEditingEmployee(null);
@@ -100,17 +108,28 @@ const Employees: React.FC = () => {
             fetchEmployees();
         } catch (error) {
             console.error('Error saving employee:', error);
-            alert('Çalışan kaydedilirken hata oluştu');
+            toast.error('Çalışan kaydedilirken hata oluştu');
         }
     };
 
-    const handleDelete = async (id: string) => {
-        if (!confirm('Bu çalışanı silmek istediğinize emin misiniz?')) return;
+    const handleDeleteClick = (id: string) => {
+        setEmployeeToDelete(id);
+        setDeleteConfirmOpen(true);
+    };
+
+    const handleConfirmDelete = async () => {
+        if (!employeeToDelete) return;
+
         try {
-            await api.deleteEmployee(id);
+            await api.deleteEmployee(employeeToDelete);
+            toast.success('Çalışan başarıyla silindi.');
             fetchEmployees();
         } catch (error) {
             console.error('Error deleting employee:', error);
+            toast.error('Çalışan silinemedi. Lütfen tekrar deneyin.');
+        } finally {
+            setDeleteConfirmOpen(false);
+            setEmployeeToDelete(null);
         }
     };
 
@@ -450,7 +469,7 @@ const Employees: React.FC = () => {
                                                 <Edit className="w-5 h-5" />
                                             </button>
                                             <button
-                                                onClick={() => handleDelete(emp.id)}
+                                                onClick={() => handleDeleteClick(emp.id)}
                                                 className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                                             >
                                                 <Trash2 className="w-5 h-5" />
@@ -463,6 +482,16 @@ const Employees: React.FC = () => {
                     </div>
                 )}
             </div>
+
+            <ConfirmDialog
+                isOpen={deleteConfirmOpen}
+                title="Çalışanı Sil"
+                message="Bu çalışanı silmek istediğinize emin misiniz? Bu işlem geri alınamaz."
+                confirmLabel="Evet, Sil"
+                cancelLabel="İptal"
+                onConfirm={handleConfirmDelete}
+                onCancel={() => setDeleteConfirmOpen(false)}
+            />
         </div>
     );
 };

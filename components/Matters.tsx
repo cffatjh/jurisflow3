@@ -6,6 +6,7 @@ import { useTranslation } from '../contexts/LanguageContext';
 import { useData } from '../contexts/DataContext';
 import mammoth from 'mammoth';
 import { toast } from './Toast';
+import { Combobox } from './common/Combobox';
 
 const Matters: React.FC = () => {
   const { t, formatCurrency, formatDate } = useTranslation();
@@ -58,6 +59,18 @@ const Matters: React.FC = () => {
     trustAmount: '' as string | number,
     courtType: ''
   });
+
+  const courtOptions = [
+    'Ağır Ceza Mahkemesi',
+    'Asliye Ceza Mahkemesi',
+    'Asliye Hukuk Mahkemesi',
+    'Aile Mahkemesi',
+    'İş Mahkemesi',
+    'Sulh Hukuk Mahkemesi',
+    'İcra Hukuk Mahkemesi',
+    'Tüketici Mahkemesi',
+    'Fikri ve Sınai Haklar Mahkemesi'
+  ];
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -518,17 +531,13 @@ const Matters: React.FC = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('court_type') || 'Mahkeme Türü'}</label>
-                  <input list="court-types" className="w-full border border-gray-300 rounded-lg p-2.5 text-sm bg-white text-slate-900 focus:ring-2 focus:ring-primary-500 outline-none" value={editData ? editData.courtType || '' : formData.courtType} onChange={e => editData ? setEditData({ ...editData, courtType: e.target.value }) : setFormData({ ...formData, courtType: e.target.value })} />
-                  <datalist id="court-types">
-                    <option value="Ağır Ceza Mahkemesi" />
-                    <option value="Asliye Ceza Mahkemesi" />
-                    <option value="Asliye Hukuk Mahkemesi" />
-                    <option value="Aile Mahkemesi" />
-                    <option value="İş Mahkemesi" />
-                    <option value="Sulh Hukuk Mahkemesi" />
-                    <option value="İcra Hukuk Mahkemesi" />
-                  </datalist>
+                  <Combobox
+                    label={t('court_type') || 'Mahkeme Türü'}
+                    value={editData ? editData.courtType || '' : formData.courtType}
+                    options={courtOptions}
+                    onChange={(val) => editData ? setEditData({ ...editData, courtType: val }) : setFormData({ ...formData, courtType: val })}
+                    placeholder="Mahkeme Seçiniz"
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">{t('fee_structure')}</label>
