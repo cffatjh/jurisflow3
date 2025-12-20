@@ -41,8 +41,17 @@ export type Permission =
   | 'billing.view'
   | 'billing.manage' // Create/Edit invoices
   | 'billing.approve'
+  // IOLTA Trust Permissions (Granular)
   | 'trust.view'
-  | 'trust.manage'
+  | 'trust.deposit'
+  | 'trust.withdraw'
+  | 'trust.transfer'
+  | 'trust.void'
+  | 'trust.reconcile'
+  | 'trust.approve'
+  | 'trust.close_ledger'
+  | 'trust.export'
+  | 'trust.admin'
   | 'document.view'
   | 'document.create'
   | 'document.edit'
@@ -53,18 +62,37 @@ export type Permission =
   | 'client.manage';
 
 export const ROLE_PERMISSIONS: Record<EmployeeRole, Permission[]> = {
-  [EmployeeRole.INTERN_LAWYER]: ['matter.view', 'document.view', 'document.create', 'document.edit', 'calendar.manage', 'task.manage'],
-  [EmployeeRole.SECRETARY]: ['calendar.manage', 'client.manage', 'task.manage', 'matter.view', 'document.view'],
-  [EmployeeRole.PARALEGAL]: ['matter.create', 'matter.view', 'matter.edit', 'document.create', 'document.edit', 'document.view', 'calendar.manage', 'task.manage', 'client.manage', 'billing.manage'], // billing.manage for drafts
-  [EmployeeRole.ACCOUNTANT]: ['billing.view', 'billing.manage', 'billing.approve', 'trust.view', 'trust.manage', 'report.financial', 'matter.view', 'document.view'],
+  [EmployeeRole.INTERN_LAWYER]: [
+    'matter.view', 'document.view', 'document.create', 'document.edit',
+    'calendar.manage', 'task.manage',
+    'trust.view' // View-only trust access
+  ],
+  [EmployeeRole.SECRETARY]: [
+    'calendar.manage', 'client.manage', 'task.manage', 'matter.view', 'document.view',
+    'trust.view' // View-only trust access
+  ],
+  [EmployeeRole.PARALEGAL]: [
+    'matter.create', 'matter.view', 'matter.edit',
+    'document.create', 'document.edit', 'document.view',
+    'calendar.manage', 'task.manage', 'client.manage', 'billing.manage',
+    'trust.view', 'trust.deposit' // Can do deposits only
+  ],
+  [EmployeeRole.ACCOUNTANT]: [
+    'billing.view', 'billing.manage', 'billing.approve',
+    'report.financial', 'matter.view', 'document.view',
+    'trust.view', 'trust.deposit', 'trust.withdraw', 'trust.reconcile', 'trust.export' // Can reconcile, limited withdrawals
+  ],
   [EmployeeRole.ATTORNEY]: [
     'user.manage',
     'matter.view', 'matter.create', 'matter.edit', 'matter.delete',
     'billing.view', 'billing.manage', 'billing.approve',
-    'trust.view', 'trust.manage',
     'document.view', 'document.create', 'document.edit', 'document.delete',
     'report.financial',
-    'calendar.manage', 'task.manage', 'client.manage'
+    'calendar.manage', 'task.manage', 'client.manage',
+    // Full trust access
+    'trust.view', 'trust.deposit', 'trust.withdraw', 'trust.transfer',
+    'trust.void', 'trust.reconcile', 'trust.approve', 'trust.close_ledger',
+    'trust.export', 'trust.admin'
   ]
 };
 
@@ -572,4 +600,278 @@ export interface ActiveTimer {
   isRunning: boolean;
   elapsed: number; // saved elapsed time if paused
   rate?: number;
+}
+
+// ==============================
+// IOLTA TRUST ACCOUNTING TYPES
+// ABA Model Rule 1.15 Compliant
+// ==============================
+
+// Trust Account Status
+export enum TrustAccountStatus {
+  ACTIVE = 'ACTIVE',
+  INACTIVE = 'INACTIVE',
+  CLOSED = 'CLOSED'
+}
+
+// Client Ledger Status
+export enum LedgerStatus {
+  ACTIVE = 'ACTIVE',
+  CLOSED = 'CLOSED',
+  FROZEN = 'FROZEN'
+}
+
+// Trust Transaction Status
+export enum TrustTxStatus {
+  PENDING = 'PENDING',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+  VOIDED = 'VOIDED'
+}
+
+// Trust Transaction Type (V2)
+export enum TrustTransactionTypeV2 {
+  DEPOSIT = 'DEPOSIT',
+  WITHDRAWAL = 'WITHDRAWAL',
+  TRANSFER_IN = 'TRANSFER_IN',
+  TRANSFER_OUT = 'TRANSFER_OUT',
+  REFUND_TO_CLIENT = 'REFUND_TO_CLIENT',
+  FEE_EARNED = 'FEE_EARNED',
+  INTEREST = 'INTEREST'
+}
+
+// Trust Bank Account (IOLTA Account)
+export interface TrustBankAccount {
+  id: string;
+  name: string;
+  bankName: string;
+  accountNumberEnc: string; // Encrypted
+  routingNumber: string;
+  jurisdiction: string; // State code
+  currentBalance: number;
+  status: TrustAccountStatus;
+  createdAt: string;
+  updatedAt: string;
+  closedAt?: string;
+  closedBy?: string;
+}
+
+// Client Trust Ledger (Subsidiary Ledger)
+export interface ClientTrustLedger {
+  id: string;
+  clientId: string;
+  client?: Client;
+  matterId?: string;
+  trustAccountId: string;
+  trustAccount?: TrustBankAccount;
+  runningBalance: number;
+  status: LedgerStatus;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+  closedAt?: string;
+  closedBy?: string;
+  closedReason?: string;
+}
+
+// Trust Transaction V2 (IOLTA Compliant - Immutable)
+export interface TrustTransactionV2 {
+  id: string;
+  trustAccountId: string;
+  trustAccount?: TrustBankAccount;
+  type: TrustTransactionTypeV2;
+  amount: number;
+
+  // Immutability
+  isVoided: boolean;
+  voidedAt?: string;
+  voidedBy?: string;
+  voidReason?: string;
+  originalTxId?: string;
+
+  // Required Metadata
+  description: string;
+  payorPayee: string;
+  checkNumber?: string;
+  wireReference?: string;
+
+  // Approval Workflow
+  status: TrustTxStatus;
+  createdBy: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  rejectedBy?: string;
+  rejectedAt?: string;
+  rejectionReason?: string;
+
+  // IOLTA Tracking
+  isEarned: boolean;
+  earnedDate?: string;
+
+  // Balance Snapshots
+  accountBalanceBefore: number;
+  accountBalanceAfter: number;
+
+  createdAt: string;
+
+  // Relations
+  allocations?: TrustAllocationLine[];
+}
+
+// Trust Allocation Line (Split deposits/withdrawals)
+export interface TrustAllocationLine {
+  id: string;
+  transactionId: string;
+  transaction?: TrustTransactionV2;
+  ledgerId: string;
+  ledger?: ClientTrustLedger;
+  amount: number; // Positive = deposit, Negative = withdrawal
+  description?: string;
+  ledgerBalanceAfter: number;
+  createdAt: string;
+}
+
+// Earned Fee Event (Trust → Operating)
+export interface EarnedFeeEvent {
+  id: string;
+  invoiceId: string;
+  ledgerId: string;
+  ledger?: ClientTrustLedger;
+  trustTxId: string;
+  trustTx?: TrustTransactionV2;
+  amount: number;
+  approvedBy: string;
+  approvedAt: string;
+  operatingReference?: string;
+  notes?: string;
+  createdAt: string;
+}
+
+// Reconciliation Record (Three-Way)
+export interface ReconciliationRecord {
+  id: string;
+  trustAccountId: string;
+  trustAccount?: TrustBankAccount;
+  periodStart: string;
+  periodEnd: string;
+
+  // Three-Way Balances
+  bankStatementBalance: number;
+  trustLedgerBalance: number;
+  clientLedgerSumBalance: number;
+
+  // Status
+  isReconciled: boolean;
+  discrepancyAmount?: number;
+
+  // Outstanding Items
+  outstandingChecks?: string; // JSON
+  depositsInTransit?: string; // JSON
+  otherAdjustments?: string; // JSON
+
+  exceptions?: string; // JSON
+  notes?: string;
+
+  // Prepared/Approved
+  preparedBy: string;
+  preparedAt: string;
+  approvedBy?: string;
+  approvedAt?: string;
+
+  createdAt: string;
+}
+
+// Trust Audit Log (Immutable)
+export interface TrustAuditLog {
+  id: string;
+  userId?: string;
+  userEmail?: string;
+  userRole?: string;
+  ipAddress?: string;
+  userAgent?: string;
+  action: string;
+  entityType: string;
+  entityId?: string;
+  previousState?: string; // JSON
+  newState?: string; // JSON
+  metadata?: string; // JSON
+  amount?: number;
+  trustAccountId?: string;
+  clientLedgerId?: string;
+  transactionId?: string;
+  createdAt: string;
+}
+
+// Jurisdiction Config
+export interface JurisdictionConfig {
+  id: string;
+  stateCode: string;
+  stateName: string;
+  interestToBar: boolean;
+  interestRate?: number;
+  retentionYears: number;
+  reportingFreq: 'ANNUAL' | 'QUARTERLY';
+  minBalanceForInterest?: number;
+  specialRules?: string; // JSON
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Trust-specific Permissions
+export type TrustPermission =
+  | 'trust.view'
+  | 'trust.deposit'
+  | 'trust.withdraw'
+  | 'trust.transfer'
+  | 'trust.void'
+  | 'trust.reconcile'
+  | 'trust.approve'
+  | 'trust.close_ledger'
+  | 'trust.export'
+  | 'trust.admin';
+
+// Trust Operation Result
+export interface TrustOperationResult {
+  success: boolean;
+  error?: string;
+  message?: string;
+  transactionId?: string;
+  ledgerId?: string;
+  newBalance?: number;
+}
+
+// Reconciliation Input
+export interface ReconciliationInput {
+  trustAccountId: string;
+  periodEnd: string;
+  bankStatementBalance: number;
+  outstandingChecks?: { checkNumber: string; amount: number; date: string }[];
+  depositsInTransit?: { reference: string; amount: number; date: string }[];
+  notes?: string;
+}
+
+// Trust Deposit Request
+export interface TrustDepositRequest {
+  trustAccountId: string;
+  amount: number;
+  payorPayee: string;
+  description: string;
+  checkNumber?: string;
+  wireReference?: string;
+  allocations: {
+    ledgerId: string;
+    amount: number;
+    description?: string;
+  }[];
+}
+
+// Trust Withdrawal Request
+export interface TrustWithdrawalRequest {
+  trustAccountId: string;
+  ledgerId: string;
+  amount: number;
+  payorPayee: string;
+  description: string;
+  checkNumber?: string;
 }

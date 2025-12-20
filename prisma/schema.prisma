@@ -48,6 +48,7 @@ model Client {
   notifications Notification[]    // Client notifications
   appointmentRequests AppointmentRequest[]  // Randevu talepleri
   signatureRequests SignatureRequest[]  // E-imza talepleri
+  trustLedgers ClientTrustLedger[]  // IOLTA trust ledgers for this client
 }
 
 // ------------------------------
@@ -879,6 +880,332 @@ model SettlementStatement {
   status          String   @default("draft") // draft, sent, approved, disputed
   clientApprovedAt DateTime?
   pdfPath         String?  // Generated PDF path
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// ==============================
+// IOLTA TRUST ACCOUNTING SYSTEM
+// ABA Model Rule 1.15 Compliant
+// ==============================
+
+// ------------------------------
+// TRUST BANK ACCOUNT STATUS
+// ------------------------------
+enum TrustAccountStatus {
+  ACTIVE
+  INACTIVE
+  CLOSED
+}
+
+// ------------------------------
+// CLIENT LEDGER STATUS
+// ------------------------------
+enum LedgerStatus {
+  ACTIVE
+  CLOSED
+  FROZEN     // For disputed or audit-hold
+}
+
+// ------------------------------
+// TRUST TRANSACTION STATUS
+// ------------------------------
+enum TrustTxStatus {
+  PENDING         // Awaiting approval
+  APPROVED        // Approved and executed
+  REJECTED        // Rejected by approver
+  VOIDED          // Voided/reversed
+}
+
+// ------------------------------
+// TRUST BANK ACCOUNT (IOLTA Account)
+// Physical bank account for client funds
+// ------------------------------
+model TrustBankAccount {
+  id                String             @id @default(cuid())
+  name              String             // "Primary IOLTA Account"
+  bankName          String             // Bank name
+  accountNumberEnc  String             // Encrypted account number
+  routingNumber     String             // Routing/ABA number
+  jurisdiction      String             // "CA", "NY", "TX" - state-specific rules
+  
+  // Balance is computed from transactions but cached for performance
+  currentBalance    Decimal            @default(0) @db.Decimal(15, 2)
+  
+  status            TrustAccountStatus @default(ACTIVE)
+  
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  closedAt          DateTime?
+  closedBy          String?
+  
+  // Relations
+  clientLedgers     ClientTrustLedger[]
+  transactions      TrustTransactionV2[]
+  reconciliations   ReconciliationRecord[]
+}
+
+// ------------------------------
+// CLIENT TRUST LEDGER
+// Per-client (optionally per-matter) subsidiary ledger
+// ------------------------------
+model ClientTrustLedger {
+  id              String           @id @default(cuid())
+  
+  clientId        String
+  client          Client           @relation(fields: [clientId], references: [id])
+  
+  matterId        String?          // Optional: per-matter sub-ledgers
+  
+  trustAccountId  String
+  trustAccount    TrustBankAccount @relation(fields: [trustAccountId], references: [id])
+  
+  // Running balance (updated with each allocation)
+  runningBalance  Decimal          @default(0) @db.Decimal(15, 2)
+  
+  status          LedgerStatus     @default(ACTIVE)
+  
+  // Notes for the ledger
+  notes           String?
+  
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  closedAt        DateTime?
+  closedBy        String?
+  closedReason    String?
+  
+  // Relations
+  allocations     TrustAllocationLine[]
+  earnedFees      EarnedFeeEvent[]
+  
+  @@unique([clientId, matterId, trustAccountId])
+}
+
+// ------------------------------
+// TRUST TRANSACTION V2 (IOLTA Compliant)
+// IMMUTABLE - No update/delete, only void with reversal
+// ------------------------------
+model TrustTransactionV2 {
+  id                  String               @id @default(cuid())
+  
+  trustAccountId      String
+  trustAccount        TrustBankAccount     @relation(fields: [trustAccountId], references: [id])
+  
+  type                TrustTransactionType // DEPOSIT, WITHDRAWAL, etc.
+  amount              Decimal              @db.Decimal(15, 2)
+  
+  // IMMUTABILITY SUPPORT
+  isVoided            Boolean              @default(false)
+  voidedAt            DateTime?
+  voidedBy            String?
+  voidReason          String?
+  originalTxId        String?              // If this is a reversal, link to original
+  
+  // REQUIRED METADATA (for audit)
+  description         String
+  payorPayee          String               // Who the money came from / went to
+  checkNumber         String?
+  wireReference       String?
+  
+  // APPROVAL WORKFLOW
+  status              TrustTxStatus        @default(PENDING)
+  createdBy           String               // User who initiated
+  approvedBy          String?              // Partner/Admin who approved
+  approvedAt          DateTime?
+  rejectedBy          String?
+  rejectedAt          DateTime?
+  rejectionReason     String?
+  
+  // IOLTA TRACKING
+  isEarned            Boolean              @default(false) // Has this been earned?
+  earnedDate          DateTime?
+  
+  // Balance snapshots (for audit trail)
+  accountBalanceBefore Decimal             @db.Decimal(15, 2)
+  accountBalanceAfter  Decimal             @db.Decimal(15, 2)
+  
+  createdAt           DateTime             @default(now())
+  // NO updatedAt - IMMUTABLE
+  
+  // Relations
+  allocations         TrustAllocationLine[]
+  earnedFeeEvent      EarnedFeeEvent?
+}
+
+// ------------------------------
+// TRUST ALLOCATION LINE
+// Links one transaction to multiple client ledgers
+// Enables split deposits/withdrawals
+// ------------------------------
+model TrustAllocationLine {
+  id              String             @id @default(cuid())
+  
+  transactionId   String
+  transaction     TrustTransactionV2 @relation(fields: [transactionId], references: [id])
+  
+  ledgerId        String
+  ledger          ClientTrustLedger  @relation(fields: [ledgerId], references: [id])
+  
+  // Amount allocated (positive for deposit, negative for withdrawal)
+  amount          Decimal            @db.Decimal(15, 2)
+  
+  description     String?
+  
+  // Balance snapshot AFTER this allocation (for audit)
+  ledgerBalanceAfter Decimal         @db.Decimal(15, 2)
+  
+  createdAt       DateTime           @default(now())
+  // NO updatedAt - IMMUTABLE
+}
+
+// ------------------------------
+// EARNED FEE EVENT
+// Records when fees are earned and transferred from Trust → Operating
+// ------------------------------
+model EarnedFeeEvent {
+  id              String             @id @default(cuid())
+  
+  // Invoice that was approved/paid
+  invoiceId       String
+  
+  // Client ledger funds came from
+  ledgerId        String
+  ledger          ClientTrustLedger  @relation(fields: [ledgerId], references: [id])
+  
+  // Trust transaction that withdrew funds
+  trustTxId       String             @unique
+  trustTx         TrustTransactionV2 @relation(fields: [trustTxId], references: [id])
+  
+  amount          Decimal            @db.Decimal(15, 2)
+  
+  // Who approved
+  approvedBy      String
+  approvedAt      DateTime
+  
+  // For tracking where it went
+  operatingReference String?         // Reference in operating account
+  
+  notes           String?
+  
+  createdAt       DateTime           @default(now())
+}
+
+// ------------------------------
+// RECONCILIATION RECORD
+// Monthly three-way reconciliation snapshot
+// Bank Balance == Trust Ledger == Sum(Client Ledgers)
+// ------------------------------
+model ReconciliationRecord {
+  id                      String           @id @default(cuid())
+  
+  trustAccountId          String
+  trustAccount            TrustBankAccount @relation(fields: [trustAccountId], references: [id])
+  
+  // Period
+  periodStart             DateTime
+  periodEnd               DateTime
+  
+  // THREE-WAY BALANCES
+  bankStatementBalance    Decimal          @db.Decimal(15, 2) // From bank statement
+  trustLedgerBalance      Decimal          @db.Decimal(15, 2) // Software total
+  clientLedgerSumBalance  Decimal          @db.Decimal(15, 2) // Sum of all client ledgers
+  
+  // RECONCILIATION STATUS
+  isReconciled            Boolean          @default(false)
+  discrepancyAmount       Decimal?         @db.Decimal(15, 2)
+  
+  // Outstanding items
+  outstandingChecks       String?          @db.Text // JSON: [{checkNumber, amount, date}]
+  depositsInTransit       String?          @db.Text // JSON: [{reference, amount, date}]
+  otherAdjustments        String?          @db.Text // JSON: other reconciling items
+  
+  exceptions              String?          @db.Text // JSON: list of exceptions/errors
+  notes                   String?          @db.Text
+  
+  // PREPARED BY
+  preparedBy              String
+  preparedAt              DateTime
+  
+  // APPROVED BY (Partner sign-off)
+  approvedBy              String?
+  approvedAt              DateTime?
+  
+  createdAt               DateTime         @default(now())
+  // NO updatedAt - IMMUTABLE once approved
+}
+
+// ------------------------------
+// TRUST AUDIT LOG (IMMUTABLE)
+// Append-only audit trail for all trust actions
+// Bar auditors require this
+// ------------------------------
+model TrustAuditLog {
+  id              String   @id @default(cuid())
+  
+  // WHO
+  userId          String?
+  userEmail       String?
+  userRole        String?
+  ipAddress       String?
+  userAgent       String?
+  
+  // WHAT
+  action          String   // TRUST_DEPOSIT, TRUST_WITHDRAWAL, VOID_TX, RECONCILE, APPROVE, etc.
+  entityType      String   // TrustTransactionV2, ClientTrustLedger, ReconciliationRecord, etc.
+  entityId        String?
+  
+  // DETAILS (for forensic analysis)
+  previousState   String?  @db.Text // JSON snapshot before action
+  newState        String?  @db.Text // JSON snapshot after action
+  metadata        String?  @db.Text // JSON: additional context
+  
+  // Amounts involved
+  amount          Decimal? @db.Decimal(15, 2)
+  
+  // Related entities
+  trustAccountId  String?
+  clientLedgerId  String?
+  transactionId   String?
+  
+  createdAt       DateTime @default(now())
+  
+  // IMMUTABLE - NO UPDATE OR DELETE
+  // Indexes for efficient querying
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@index([action])
+  @@index([trustAccountId])
+  @@index([createdAt])
+}
+
+// ------------------------------
+// JURISDICTION CONFIG
+// State-specific trust rules
+// ------------------------------
+model JurisdictionConfig {
+  id              String   @id @default(cuid())
+  
+  stateCode       String   @unique // "CA", "NY", "TX", etc.
+  stateName       String
+  
+  // Interest handling
+  interestToBar   Boolean  @default(true)  // IOLTA interest goes to bar foundation?
+  interestRate    Decimal? @db.Decimal(5, 4)
+  
+  // Record retention
+  retentionYears  Int      @default(5)
+  
+  // Reporting requirements
+  reportingFreq   String   @default("ANNUAL") // ANNUAL, QUARTERLY
+  
+  // Minimum balance rules
+  minBalanceForInterest Decimal? @db.Decimal(15, 2)
+  
+  // Special rules (JSON)
+  specialRules    String?  @db.Text // JSON: state-specific rules
+  
+  isActive        Boolean  @default(true)
+  
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }

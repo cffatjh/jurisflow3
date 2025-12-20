@@ -19,6 +19,7 @@ import { checkPermission } from './middleware/rbac';
 import { sendEmail, emailTemplates } from './services/emailService';
 import { generateInvoicePDF } from './services/pdfService';
 import { uploadSingle, uploadMultiple } from './middleware/fileUpload';
+import trustRoutes from './routes/trustRoutes';
 
 declare global {
   namespace Express {
@@ -432,6 +433,10 @@ const ensureTestAttorney = async () => {
 app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
+
+// ===================== TRUST ACCOUNTING (IOLTA) =====================
+// ABA Model Rule 1.15 Compliant Trust Accounting
+app.use('/api/trust', trustRoutes);
 
 // ===================== AUTH =====================
 // Note: authLimiter is already applied via app.use('/api/login', authLimiter) above
