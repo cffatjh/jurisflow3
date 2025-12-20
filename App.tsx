@@ -23,6 +23,7 @@ import Settings from './components/Settings';
 import Reports from './components/Reports';
 import Employees from './components/Employees';
 import GlobalTimer from './components/GlobalTimer';
+import TrustAccounting from './components/TrustAccounting';
 import ClientPortal from './components/client/ClientPortal';
 import { ToastProvider } from './components/Toast';
 import { ConfirmProvider } from './components/ConfirmDialog';
@@ -33,7 +34,7 @@ import { DataProvider, useData } from './contexts/DataContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { Language } from './translations';
 
-type ActiveTab = 'dashboard' | 'matters' | 'documents' | 'communications' | 'crm' | 'ai' | 'billing' | 'calendar' | 'time' | 'tasks' | 'settings' | 'videocall' | 'reports' | 'employees';
+type ActiveTab = 'dashboard' | 'matters' | 'documents' | 'communications' | 'crm' | 'ai' | 'billing' | 'calendar' | 'time' | 'tasks' | 'settings' | 'videocall' | 'reports' | 'employees' | 'trust';
 
 const FLAGS: Record<Language, string> = {
   en: '🇺🇸',
@@ -120,6 +121,7 @@ const MainLayout = () => {
           <NavButton tab="documents" icon={Folder} label={t('nav_docs')} />
           <NavButton tab="calendar" icon={CalendarIcon} label={t('nav_calendar')} />
           <NavButton tab="billing" icon={CreditCard} label={t('nav_billing')} />
+          <NavButton tab="trust" icon={Scale} label="Trust (IOLTA)" />
           <NavButton tab="time" icon={Timer} label={t('nav_time')} />
           <NavButton tab="employees" icon={Users} label={t('nav_employees') || 'Çalışanlar'} />
           <NavButton tab="reports" icon={BarChart3} label="Reports" />
@@ -209,6 +211,7 @@ const ComponentSwitcher = ({ activeTab }: { activeTab: ActiveTab }) => {
     case 'videocall': return <VideoCall />;
     case 'crm': return <CRM />;
     case 'billing': return <Billing />;
+    case 'trust': return <TrustAccounting />;
     case 'calendar': return <CalendarView />;
     case 'ai': return <AIDrafter matters={matters} />;
     case 'time': return <TimeTracker />;
