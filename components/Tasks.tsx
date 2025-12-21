@@ -114,7 +114,7 @@ const Tasks: React.FC = () => {
             className="bg-white border border-gray-200 text-slate-700 px-5 py-2.5 rounded-lg shadow-sm hover:bg-gray-50 transition-colors text-sm font-medium"
             title="Create tasks from a workflow template"
           >
-            Şablon
+            Template
           </button>
           <button
             onClick={() => setShowModal(true)}
@@ -258,9 +258,9 @@ const Tasks: React.FC = () => {
                       <div className="flex-1">
                         <div className="flex items-center gap-3">
                           <span className={`text-[10px] px-2 py-0.5 rounded border font-bold uppercase ${task.outcome === 'success' ? 'bg-green-100 text-green-700 border-green-200' :
-                              task.outcome === 'failed' ? 'bg-red-100 text-red-700 border-red-200' :
-                                task.outcome === 'cancelled' ? 'bg-gray-100 text-gray-600 border-gray-200' :
-                                  'bg-slate-100 text-slate-600 border-slate-200'
+                            task.outcome === 'failed' ? 'bg-red-100 text-red-700 border-red-200' :
+                              task.outcome === 'cancelled' ? 'bg-gray-100 text-gray-600 border-gray-200' :
+                                'bg-slate-100 text-slate-600 border-slate-200'
                             }`}>
                             {task.outcome || 'Archived'}
                           </span>
@@ -363,8 +363,8 @@ const Tasks: React.FC = () => {
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg">
             <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
               <div>
-                <h3 className="font-bold text-lg text-slate-800">Şablondan Görev Oluştur</h3>
-                <p className="text-sm text-gray-500 mt-1">Bir şablon seçin, Matter’a bağlayın ve tek seferde checklist oluşturun.</p>
+                <h3 className="font-bold text-lg text-slate-800">Create Tasks from Template</h3>
+                <p className="text-sm text-gray-500 mt-1">Select a template, link to a Matter, and create a checklist in one step.</p>
               </div>
               <button onClick={() => setShowTemplateModal(false)} className="text-gray-400 hover:text-gray-600">
                 <X className="w-5 h-5" />
@@ -373,14 +373,14 @@ const Tasks: React.FC = () => {
 
             <form onSubmit={handleCreateFromTemplate} className="p-6 space-y-4">
               <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Şablon</label>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Template</label>
                 <select
                   value={templateId}
                   onChange={e => setTemplateId(e.target.value)}
                   className="w-full border border-gray-300 p-2.5 rounded-lg bg-white text-slate-900 text-sm focus:ring-2 focus:ring-slate-500 outline-none"
                   required
                 >
-                  <option value="">-- Şablon seçin --</option>
+                  <option value="">-- Select template --</option>
                   {taskTemplates.map(tp => (
                     <option key={tp.id} value={tp.id}>
                       {tp.category ? `[${tp.category}] ` : ''}{tp.name}
@@ -408,7 +408,7 @@ const Tasks: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Başlangıç Tarihi</label>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Start Date</label>
                   <input
                     type="date"
                     value={templateBaseDate}
@@ -417,7 +417,7 @@ const Tasks: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Atanan (Initials)</label>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Assignee (Initials)</label>
                   <input
                     value={templateAssignedTo}
                     onChange={e => setTemplateAssignedTo(e.target.value)}
@@ -432,7 +432,7 @@ const Tasks: React.FC = () => {
                   {t('cancel')}
                 </button>
                 <button type="submit" className="px-3 py-2 bg-slate-800 text-white font-bold rounded-lg text-sm">
-                  Oluştur
+                  Create
                 </button>
               </div>
             </form>

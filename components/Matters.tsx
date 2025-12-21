@@ -555,7 +555,7 @@ const Matters: React.FC = () => {
                     onClick={() => setShowNewClientModal(true)}
                     className="mt-2 text-xs text-primary-600 hover:underline font-medium"
                   >
-                    + Yeni Müvekkil Ekle
+                    + Add New Client
                   </button>
                 </div>
               )}
@@ -779,7 +779,7 @@ const Matters: React.FC = () => {
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 sticky top-0">
-              <h3 className="font-bold text-lg text-slate-800">Yeni Müvekkil Ekle</h3>
+              <h3 className="font-bold text-lg text-slate-800">Add New Client</h3>
               <button onClick={() => { setShowNewClientModal(false); setNewClientData({ name: '', email: '', phone: '', mobile: '', company: '', type: 'Individual', address: '', city: '', state: '', zipCode: '', country: '', taxId: '', notes: '' }); }} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
             </div>
             <form onSubmit={async (e) => {
@@ -790,77 +790,77 @@ const Matters: React.FC = () => {
                 setShowNewClientModal(false);
                 setNewClientData({ name: '', email: '', phone: '', mobile: '', company: '', type: 'Individual', address: '', city: '', state: '', zipCode: '', country: '', taxId: '', notes: '' });
               } catch (error) {
-                toast.error('Müvekkil oluşturulurken bir hata oluştu.');
+                toast.error('Error creating client.');
               }
             }} className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Ad Soyad / Şirket Adı *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Full Name / Company Name *</label>
                   <input required type="text" className="w-full border border-gray-300 rounded-lg p-2.5 text-sm" value={newClientData.name} onChange={e => setNewClientData({ ...newClientData, name: e.target.value })} />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">E-posta *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
                   <input required type="email" className="w-full border border-gray-300 rounded-lg p-2.5 text-sm" value={newClientData.email} onChange={e => setNewClientData({ ...newClientData, email: e.target.value })} />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Telefon</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
                   <input type="tel" className="w-full border border-gray-300 rounded-lg p-2.5 text-sm" value={newClientData.phone} onChange={e => setNewClientData({ ...newClientData, phone: e.target.value })} />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Cep Telefonu</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Mobile Phone</label>
                   <input type="tel" className="w-full border border-gray-300 rounded-lg p-2.5 text-sm" value={newClientData.mobile} onChange={e => setNewClientData({ ...newClientData, mobile: e.target.value })} />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Tür</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
                   <select className="w-full border border-gray-300 rounded-lg p-2.5 text-sm" value={newClientData.type} onChange={e => setNewClientData({ ...newClientData, type: e.target.value as 'Individual' | 'Corporate' })}>
-                    <option value="Individual">Bireysel</option>
-                    <option value="Corporate">Kurumsal</option>
+                    <option value="Individual">Individual</option>
+                    <option value="Corporate">Corporate</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Şirket (Kurumsal ise)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Company (if Corporate)</label>
                   <input type="text" className="w-full border border-gray-300 rounded-lg p-2.5 text-sm" value={newClientData.company} onChange={e => setNewClientData({ ...newClientData, company: e.target.value })} />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Adres</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
                 <input type="text" className="w-full border border-gray-300 rounded-lg p-2.5 text-sm" value={newClientData.address} onChange={e => setNewClientData({ ...newClientData, address: e.target.value })} />
               </div>
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Şehir</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
                   <input type="text" className="w-full border border-gray-300 rounded-lg p-2.5 text-sm" value={newClientData.city} onChange={e => setNewClientData({ ...newClientData, city: e.target.value })} />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">İl/İlçe</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">State</label>
                   <input type="text" className="w-full border border-gray-300 rounded-lg p-2.5 text-sm" value={newClientData.state} onChange={e => setNewClientData({ ...newClientData, state: e.target.value })} />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Posta Kodu</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">ZIP Code</label>
                   <input type="text" className="w-full border border-gray-300 rounded-lg p-2.5 text-sm" value={newClientData.zipCode} onChange={e => setNewClientData({ ...newClientData, zipCode: e.target.value })} />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Ülke</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
                   <input type="text" className="w-full border border-gray-300 rounded-lg p-2.5 text-sm" value={newClientData.country} onChange={e => setNewClientData({ ...newClientData, country: e.target.value })} />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Vergi No / TC Kimlik No</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Tax ID / SSN</label>
                   <input type="text" className="w-full border border-gray-300 rounded-lg p-2.5 text-sm" value={newClientData.taxId} onChange={e => setNewClientData({ ...newClientData, taxId: e.target.value })} />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Notlar</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
                 <textarea rows={3} className="w-full border border-gray-300 rounded-lg p-2.5 text-sm" value={newClientData.notes} onChange={e => setNewClientData({ ...newClientData, notes: e.target.value })} />
               </div>
               <div className="flex justify-end gap-3 pt-4">
-                <button type="button" onClick={() => { setShowNewClientModal(false); setNewClientData({ name: '', email: '', phone: '', mobile: '', company: '', type: 'Individual', address: '', city: '', state: '', zipCode: '', country: '', taxId: '', notes: '' }); }} className="px-4 py-2 text-sm font-bold text-gray-600 hover:bg-gray-100 rounded-lg">İptal</button>
-                <button type="submit" className="px-4 py-2 text-sm font-bold text-white bg-slate-800 hover:bg-slate-900 rounded-lg">Kaydet</button>
+                <button type="button" onClick={() => { setShowNewClientModal(false); setNewClientData({ name: '', email: '', phone: '', mobile: '', company: '', type: 'Individual', address: '', city: '', state: '', zipCode: '', country: '', taxId: '', notes: '' }); }} className="px-4 py-2 text-sm font-bold text-gray-600 hover:bg-gray-100 rounded-lg">Cancel</button>
+                <button type="submit" className="px-4 py-2 text-sm font-bold text-white bg-slate-800 hover:bg-slate-900 rounded-lg">Save</button>
               </div>
             </form>
           </div>

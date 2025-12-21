@@ -246,7 +246,7 @@ const TimeTracker = () => {
                                     onChange={e => setSelectedMatterId(e.target.value)}
                                     disabled={hasActiveTimer} // Disable changing matter while timer active for now
                                 >
-                                    <option value="">Serbest (Free/Unassigned)</option>
+                                    <option value="">Free/Unassigned</option>
                                     {matters.map(m => <option key={m.id} value={m.id}>{m.caseNumber} - {m.name}</option>)}
                                 </select>
                             </div>
@@ -323,7 +323,7 @@ const TimeTracker = () => {
                                     value={expenseMatterId}
                                     onChange={e => setExpenseMatterId(e.target.value)}
                                 >
-                                    <option value="">Serbest (Free/Unassigned)</option>
+                                    <option value="">Free/Unassigned</option>
                                     {matters.map(m => <option key={m.id} value={m.id}>{m.caseNumber} - {m.name}</option>)}
                                 </select>
                             </div>

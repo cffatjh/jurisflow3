@@ -307,28 +307,28 @@ const CalendarView: React.FC = () => {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Süre (dk)</label>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Duration</label>
                   <select className="w-full border border-gray-300 p-2.5 rounded-lg bg-white text-slate-900 focus:ring-2 focus:ring-slate-500 outline-none" value={newDuration} onChange={e => setNewDuration(Number(e.target.value))}>
-                    <option value={15}>15 dakika</option>
-                    <option value={30}>30 dakika</option>
-                    <option value={60}>1 saat</option>
-                    <option value={90}>1.5 saat</option>
-                    <option value={120}>2 saat</option>
-                    <option value={180}>3 saat</option>
-                    <option value={240}>4 saat</option>
-                    <option value={480}>Tüm gün</option>
+                    <option value={15}>15 minutes</option>
+                    <option value={30}>30 minutes</option>
+                    <option value={60}>1 hour</option>
+                    <option value={90}>1.5 hours</option>
+                    <option value={120}>2 hours</option>
+                    <option value={180}>3 hours</option>
+                    <option value={240}>4 hours</option>
+                    <option value={480}>All day</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Hatırlatma</label>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Reminder</label>
                   <select className="w-full border border-gray-300 p-2.5 rounded-lg bg-white text-slate-900 focus:ring-2 focus:ring-slate-500 outline-none" value={newReminderMinutes} onChange={e => setNewReminderMinutes(Number(e.target.value))}>
-                    <option value={0}>Hatırlatma yok</option>
-                    <option value={5}>5 dakika önce</option>
-                    <option value={15}>15 dakika önce</option>
-                    <option value={30}>30 dakika önce</option>
-                    <option value={60}>1 saat önce</option>
-                    <option value={120}>2 saat önce</option>
-                    <option value={1440}>1 gün önce</option>
+                    <option value={0}>No reminder</option>
+                    <option value={5}>5 minutes before</option>
+                    <option value={15}>15 minutes before</option>
+                    <option value={30}>30 minutes before</option>
+                    <option value={60}>1 hour before</option>
+                    <option value={120}>2 hours before</option>
+                    <option value={1440}>1 day before</option>
                   </select>
                 </div>
               </div>

@@ -273,7 +273,7 @@ const Employees: React.FC = () => {
                         <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
                             <div className="p-6 border-b border-gray-200">
                                 <h3 className="text-lg font-semibold">
-                                    {editingEmployee ? 'Çalışan Düzenle' : 'Yeni Çalışan Ekle'}
+                                    {editingEmployee ? 'Edit Employee' : 'Add New Employee'}
                                 </h3>
                             </div>
                             <form onSubmit={handleSubmit} className="p-6 space-y-4">
@@ -328,7 +328,7 @@ const Employees: React.FC = () => {
 
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Telefon</label>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
                                         <input
                                             type="tel"
                                             value={formData.phone}
@@ -337,7 +337,7 @@ const Employees: React.FC = () => {
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Cep Telefonu</label>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Mobile Phone</label>
                                         <input
                                             type="tel"
                                             value={formData.mobile}
@@ -371,13 +371,13 @@ const Employees: React.FC = () => {
 
                                 {!editingEmployee && (
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">İlk Şifre</label>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Initial Password</label>
                                         <input
                                             type="password"
                                             value={formData.password}
                                             onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                            placeholder="Boş bırakılırsa otomatik oluşturulur"
+                                            placeholder="Leave blank to auto-generate"
                                         />
                                     </div>
                                 )}
@@ -390,20 +390,20 @@ const Employees: React.FC = () => {
                                             value={formData.emergencyContact}
                                             onChange={(e) => setFormData({ ...formData, emergencyContact: e.target.value })}
                                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                            placeholder="İsim"
+                                            placeholder="Name"
                                         />
                                         <input
                                             type="tel"
                                             value={formData.emergencyPhone}
                                             onChange={(e) => setFormData({ ...formData, emergencyPhone: e.target.value })}
                                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                            placeholder="Telefon"
+                                            placeholder="Phone"
                                         />
                                     </div>
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Notlar</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
                                     <textarea
                                         value={formData.notes}
                                         onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
