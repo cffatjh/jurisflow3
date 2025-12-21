@@ -142,6 +142,13 @@ export default function TrustAccounting() {
         notes: ''
     });
 
+    const [ledgerForm, setLedgerForm] = useState({
+        clientId: '',
+        matterId: '',
+        trustAccountId: '',
+        notes: ''
+    });
+
     // Load data
     useEffect(() => {
         loadData();
@@ -284,6 +291,29 @@ export default function TrustAccounting() {
             loadData();
         } catch (err: any) {
             toast.error(err.message || 'Mutabakat başarısız');
+        }
+    };
+
+    // Handle create ledger
+    const handleCreateLedger = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!ledgerForm.clientId || !ledgerForm.trustAccountId) {
+            toast.error('Client and Trust Account are required');
+            return;
+        }
+        try {
+            await api.post('/api/trust/ledgers', {
+                clientId: ledgerForm.clientId,
+                matterId: ledgerForm.matterId || null,
+                trustAccountId: ledgerForm.trustAccountId,
+                notes: ledgerForm.notes || null
+            });
+            toast.success('Client ledger created successfully');
+            setShowCreateLedger(false);
+            setLedgerForm({ clientId: '', matterId: '', trustAccountId: selectedAccount, notes: '' });
+            loadData();
+        } catch (err: any) {
+            toast.error(err.message || 'Failed to create ledger');
         }
     };
 
@@ -1079,6 +1109,87 @@ export default function TrustAccounting() {
                                 </button>
                                 <button type="submit" className="btn-primary">
                                     Mutabakatı Gerçekleştir
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Create Ledger Modal */}
+            {showCreateLedger && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div className="bg-white dark:bg-gray-900 rounded-xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+                        <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                            <Users className="w-5 h-5 text-blue-600" />
+                            Create Client Ledger
+                        </h2>
+                        <form onSubmit={handleCreateLedger} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Trust Account *</label>
+                                <select
+                                    value={ledgerForm.trustAccountId}
+                                    onChange={e => setLedgerForm({ ...ledgerForm, trustAccountId: e.target.value })}
+                                    className="input w-full"
+                                    required
+                                >
+                                    <option value="">Select Trust Account...</option>
+                                    {accounts.map(a => (
+                                        <option key={a.id} value={a.id}>{a.name} - {a.bankName}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Client *</label>
+                                <select
+                                    value={ledgerForm.clientId}
+                                    onChange={e => setLedgerForm({ ...ledgerForm, clientId: e.target.value })}
+                                    className="input w-full"
+                                    required
+                                >
+                                    <option value="">Select Client...</option>
+                                    {clients.map(c => (
+                                        <option key={c.id} value={c.id}>{c.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Matter (Optional)</label>
+                                <select
+                                    value={ledgerForm.matterId}
+                                    onChange={e => setLedgerForm({ ...ledgerForm, matterId: e.target.value })}
+                                    className="input w-full"
+                                >
+                                    <option value="">General Ledger (No specific matter)</option>
+                                    {matters.map(m => (
+                                        <option key={m.id} value={m.id}>{m.name} - {m.caseNumber}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Notes (Optional)</label>
+                                <textarea
+                                    value={ledgerForm.notes}
+                                    onChange={e => setLedgerForm({ ...ledgerForm, notes: e.target.value })}
+                                    className="input w-full"
+                                    rows={2}
+                                    placeholder="Any notes about this ledger..."
+                                />
+                            </div>
+
+                            <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg text-sm">
+                                <p className="text-blue-800 dark:text-blue-200">
+                                    <strong>Note:</strong> A client ledger tracks trust funds held for a specific client.
+                                    Each client can have multiple ledgers if needed (one per matter).
+                                </p>
+                            </div>
+
+                            <div className="flex justify-end gap-2 pt-4">
+                                <button type="button" onClick={() => setShowCreateLedger(false)} className="btn-secondary">
+                                    Cancel
+                                </button>
+                                <button type="submit" className="btn-primary">
+                                    Create Ledger
                                 </button>
                             </div>
                         </form>
