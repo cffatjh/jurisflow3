@@ -114,6 +114,7 @@ export default function TrustAccounting() {
     const [showWithdrawalForm, setShowWithdrawalForm] = useState(false);
     const [showReconcileForm, setShowReconcileForm] = useState(false);
     const [showCreateLedger, setShowCreateLedger] = useState(false);
+    const [showCreateAccount, setShowCreateAccount] = useState(false);
     const [selectedAccount, setSelectedAccount] = useState<string>('');
 
     // Form states
@@ -149,6 +150,23 @@ export default function TrustAccounting() {
         notes: ''
     });
 
+    const [accountForm, setAccountForm] = useState({
+        name: '',
+        bankName: '',
+        routingNumber: '',
+        accountNumber: '',
+        jurisdiction: 'CA'  // Default to California
+    });
+
+    // US States for IOLTA jurisdiction
+    const usStates = [
+        'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
+        'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD',
+        'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ',
+        'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC',
+        'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY', 'DC'
+    ];
+
     // Load data
     useEffect(() => {
         loadData();
@@ -175,7 +193,7 @@ export default function TrustAccounting() {
             }
         } catch (err: any) {
             console.error('Failed to load trust data:', err);
-            toast.error('Trust verisi yüklenemedi');
+            toast.error('Failed to load trust data');
         }
         setLoading(false);
     };
@@ -206,13 +224,13 @@ export default function TrustAccounting() {
                 }));
 
             if (allocations.length === 0) {
-                toast.error('En az bir müvekkil defteri seçmelisiniz');
+                toast.error('You must select at least one client ledger');
                 return;
             }
 
             const totalAlloc = allocations.reduce((sum, a) => sum + a.amount, 0);
             if (Math.abs(totalAlloc - parseFloat(depositForm.amount)) > 0.01) {
-                toast.error('Dağıtım toplamı yatırılan tutara eşit olmalı');
+                toast.error('Allocation total must equal deposit amount');
                 return;
             }
 
@@ -225,7 +243,7 @@ export default function TrustAccounting() {
                 allocations
             });
 
-            toast.success('Yatırım kaydedildi');
+            toast.success('Deposit recorded');
             setShowDepositForm(false);
             setDepositForm({
                 trustAccountId: selectedAccount,
@@ -237,7 +255,7 @@ export default function TrustAccounting() {
             });
             loadData();
         } catch (err: any) {
-            toast.error(err.message || 'Yatırım başarısız');
+            toast.error(err.message || 'Deposit failed');
         }
     };
 
@@ -254,7 +272,7 @@ export default function TrustAccounting() {
                 checkNumber: withdrawalForm.checkNumber || undefined
             });
 
-            toast.success('Çekim kaydedildi');
+            toast.success('Withdrawal recorded');
             setShowWithdrawalForm(false);
             setWithdrawalForm({
                 trustAccountId: selectedAccount,
@@ -266,7 +284,7 @@ export default function TrustAccounting() {
             });
             loadData();
         } catch (err: any) {
-            toast.error(err.message || 'Çekim başarısız');
+            toast.error(err.message || 'Withdrawal failed');
         }
     };
 
@@ -282,15 +300,15 @@ export default function TrustAccounting() {
             });
 
             if (result.isReconciled) {
-                toast.success('✅ Mutabakat başarılı! Üç yönlü eşleşme sağlandı.');
+                toast.success('✅ Reconciliation successful! Three-way match confirmed.');
             } else {
-                toast.warning(`⚠️ Mutabakat farkı: $${result.discrepancy.toFixed(2)} - İnceleme gerekli`);
+                toast.warning(`⚠️ Reconciliation discrepancy: $${result.discrepancy.toFixed(2)} - Review needed`);
             }
 
             setShowReconcileForm(false);
             loadData();
         } catch (err: any) {
-            toast.error(err.message || 'Mutabakat başarısız');
+            toast.error(err.message || 'Reconciliation failed');
         }
     };
 
@@ -317,17 +335,46 @@ export default function TrustAccounting() {
         }
     };
 
+    // Handle create trust account
+    const handleCreateAccount = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!accountForm.name || !accountForm.bankName || !accountForm.routingNumber || !accountForm.accountNumber) {
+            toast.error('All fields are required');
+            return;
+        }
+        // Validate routing number (9 digits for US)
+        if (!/^\d{9}$/.test(accountForm.routingNumber)) {
+            toast.error('Routing/ABA number must be exactly 9 digits');
+            return;
+        }
+        try {
+            await api.post('/api/trust/accounts', {
+                name: accountForm.name,
+                bankName: accountForm.bankName,
+                routingNumber: accountForm.routingNumber,
+                accountNumberEnc: accountForm.accountNumber, // Will be encrypted on backend
+                jurisdiction: accountForm.jurisdiction
+            });
+            toast.success('Trust account created successfully');
+            setShowCreateAccount(false);
+            setAccountForm({ name: '', bankName: '', routingNumber: '', accountNumber: '', jurisdiction: 'CA' });
+            loadData();
+        } catch (err: any) {
+            toast.error(err.message || 'Failed to create trust account');
+        }
+    };
+
     // Handle void transaction
     const handleVoidTransaction = async (txId: string) => {
-        const reason = prompt('İptal nedeni:');
+        const reason = prompt('Void reason:');
         if (!reason) return;
 
         try {
             await api.post(`/api/trust/transactions/${txId}/void`, { reason });
-            toast.success('İşlem iptal edildi');
+            toast.success('Transaction voided');
             loadData();
         } catch (err: any) {
-            toast.error(err.message || 'İptal başarısız');
+            toast.error(err.message || 'Void failed');
         }
     };
 
@@ -335,10 +382,10 @@ export default function TrustAccounting() {
     const handleApproveTransaction = async (txId: string) => {
         try {
             await api.post(`/api/trust/transactions/${txId}/approve`, {});
-            toast.success('İşlem onaylandı');
+            toast.success('Transaction approved');
             loadData();
         } catch (err: any) {
-            toast.error(err.message || 'Onay başarısız');
+            toast.error(err.message || 'Approval failed');
         }
     };
 
@@ -379,7 +426,7 @@ export default function TrustAccounting() {
                         IOLTA Trust Accounting
                     </h1>
                     <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                        ABA Model Rule 1.15 Uyumlu Emanet Hesap Yönetimi
+                        ABA Model Rule 1.15 Compliant Trust Account Management
                     </p>
                 </div>
                 <div className="flex gap-2">
@@ -388,14 +435,14 @@ export default function TrustAccounting() {
                         className="btn-primary flex items-center gap-2"
                     >
                         <ArrowDownCircle className="w-4 h-4" />
-                        Yatırım
+                        Deposit
                     </button>
                     <button
                         onClick={() => setShowWithdrawalForm(true)}
                         className="btn-secondary flex items-center gap-2"
                     >
                         <ArrowUpCircle className="w-4 h-4" />
-                        Çekim
+                        Withdrawal
                     </button>
                     <button
                         onClick={() => setShowReconcileForm(true)}
@@ -429,7 +476,7 @@ export default function TrustAccounting() {
                             <Users className="w-6 h-6 text-blue-600" />
                         </div>
                         <div>
-                            <p className="text-sm text-gray-500">Müvekkil Defterleri</p>
+                            <p className="text-sm text-gray-500">Client Ledgers</p>
                             <p className="text-xl font-bold text-gray-900 dark:text-white">
                                 {formatCurrency(totalClientLedgers)}
                             </p>
@@ -461,9 +508,9 @@ export default function TrustAccounting() {
                             )}
                         </div>
                         <div>
-                            <p className="text-sm text-gray-500">Mutabakat Durumu</p>
+                            <p className="text-sm text-gray-500">Reconciliation Status</p>
                             <p className={`text-xl font-bold ${unreconciledAccounts > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                {unreconciledAccounts > 0 ? `${unreconciledAccounts} Bekliyor` : 'Güncel'}
+                                {unreconciledAccounts > 0 ? `${unreconciledAccounts} Pending` : 'Up to Date'}
                             </p>
                         </div>
                     </div>
@@ -477,11 +524,11 @@ export default function TrustAccounting() {
                         <AlertTriangle className="w-6 h-6 text-red-600" />
                         <div>
                             <h3 className="font-semibold text-red-800 dark:text-red-200">
-                                ⚠️ Bakiye Uyumsuzluğu Tespit Edildi
+                                ⚠️ Balance Discrepancy Detected
                             </h3>
                             <p className="text-sm text-red-700 dark:text-red-300">
-                                Trust hesap bakiyesi ({formatCurrency(totalTrustBalance)}) ile müvekkil defterleri toplamı
-                                ({formatCurrency(totalClientLedgers)}) eşleşmiyor.
+                                Trust account balance ({formatCurrency(totalTrustBalance)}) does not match client ledgers total
+                                ({formatCurrency(totalClientLedgers)}).
                                 Fark: {formatCurrency(Math.abs(totalTrustBalance - totalClientLedgers))}
                             </p>
                         </div>
@@ -493,11 +540,11 @@ export default function TrustAccounting() {
             <div className="border-b border-gray-200 dark:border-gray-700">
                 <nav className="flex gap-4">
                     {[
-                        { id: 'overview', label: 'Genel Bakış', icon: Eye },
-                        { id: 'accounts', label: 'Hesaplar', icon: Building2 },
-                        { id: 'ledgers', label: 'Müvekkil Defterleri', icon: Users },
-                        { id: 'transactions', label: 'İşlemler', icon: History },
-                        { id: 'reconciliation', label: 'Mutabakat', icon: FileCheck }
+                        { id: 'overview', label: 'Overview', icon: Eye },
+                        { id: 'accounts', label: 'Accounts', icon: Building2 },
+                        { id: 'ledgers', label: 'Client Ledgers', icon: Users },
+                        { id: 'transactions', label: 'Transactions', icon: History },
+                        { id: 'reconciliation', label: 'Reconciliation', icon: FileCheck }
                     ].map(tab => (
                         <button
                             key={tab.id}
@@ -519,20 +566,28 @@ export default function TrustAccounting() {
                 {/* Accounts Tab */}
                 {activeTab === 'accounts' && (
                     <div className="space-y-4">
-                        <h2 className="text-lg font-semibold">Trust Banka Hesapları</h2>
+                        <div className="flex items-center justify-between">
+                            <h2 className="text-lg font-semibold">Trust Bank Accounts</h2>
+                            <button
+                                onClick={() => setShowCreateAccount(true)}
+                                className="btn-sm btn-primary flex items-center gap-1"
+                            >
+                                <Plus className="w-4 h-4" /> New Account
+                            </button>
+                        </div>
                         {accounts.length === 0 ? (
-                            <p className="text-gray-500">Henüz trust hesabı bulunmuyor.</p>
+                            <p className="text-gray-500">No trust accounts yet. Click "New Account" to create one.</p>
                         ) : (
                             <div className="overflow-x-auto">
                                 <table className="w-full">
                                     <thead>
                                         <tr className="border-b dark:border-gray-700">
-                                            <th className="text-left py-3 px-4">Hesap Adı</th>
-                                            <th className="text-left py-3 px-4">Banka</th>
-                                            <th className="text-left py-3 px-4">Hesap No</th>
-                                            <th className="text-left py-3 px-4">Yargı Bölgesi</th>
-                                            <th className="text-right py-3 px-4">Bakiye</th>
-                                            <th className="text-center py-3 px-4">Durum</th>
+                                            <th className="text-left py-3 px-4">Account Name</th>
+                                            <th className="text-left py-3 px-4">Bank</th>
+                                            <th className="text-left py-3 px-4">Account #</th>
+                                            <th className="text-left py-3 px-4">Jurisdiction</th>
+                                            <th className="text-right py-3 px-4">Balance</th>
+                                            <th className="text-center py-3 px-4">Status</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -566,26 +621,26 @@ export default function TrustAccounting() {
                 {activeTab === 'ledgers' && (
                     <div className="space-y-4">
                         <div className="flex items-center justify-between">
-                            <h2 className="text-lg font-semibold">Müvekkil Emanet Defterleri</h2>
+                            <h2 className="text-lg font-semibold">Client Trust Ledgers</h2>
                             <button
                                 onClick={() => setShowCreateLedger(true)}
                                 className="btn-sm btn-primary flex items-center gap-1"
                             >
-                                <Plus className="w-4 h-4" /> Yeni Defter
+                                <Plus className="w-4 h-4" /> New Ledger
                             </button>
                         </div>
                         {ledgers.length === 0 ? (
-                            <p className="text-gray-500">Henüz müvekkil defteri bulunmuyor.</p>
+                            <p className="text-gray-500">No client ledgers yet.</p>
                         ) : (
                             <div className="overflow-x-auto">
                                 <table className="w-full">
                                     <thead>
                                         <tr className="border-b dark:border-gray-700">
-                                            <th className="text-left py-3 px-4">Müvekkil</th>
-                                            <th className="text-left py-3 px-4">Dava</th>
-                                            <th className="text-left py-3 px-4">Trust Hesabı</th>
-                                            <th className="text-right py-3 px-4">Bakiye</th>
-                                            <th className="text-center py-3 px-4">Durum</th>
+                                            <th className="text-left py-3 px-4">Client</th>
+                                            <th className="text-left py-3 px-4">Matter</th>
+                                            <th className="text-left py-3 px-4">Trust Account</th>
+                                            <th className="text-right py-3 px-4">Balance</th>
+                                            <th className="text-center py-3 px-4">Status</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -595,7 +650,7 @@ export default function TrustAccounting() {
                                                     {(ledger as any).client?.name || ledger.clientId}
                                                 </td>
                                                 <td className="py-3 px-4">
-                                                    {ledger.matterId || '(Genel)'}
+                                                    {ledger.matterId || '(General)'}
                                                 </td>
                                                 <td className="py-3 px-4">
                                                     {(ledger as any).trustAccount?.name || ledger.trustAccountId}
@@ -625,21 +680,21 @@ export default function TrustAccounting() {
                 {/* Transactions Tab */}
                 {activeTab === 'transactions' && (
                     <div className="space-y-4">
-                        <h2 className="text-lg font-semibold">İşlem Geçmişi</h2>
+                        <h2 className="text-lg font-semibold">Transaction History</h2>
                         {transactions.length === 0 ? (
-                            <p className="text-gray-500">Henüz işlem bulunmuyor.</p>
+                            <p className="text-gray-500">No transactions yet.</p>
                         ) : (
                             <div className="overflow-x-auto">
                                 <table className="w-full">
                                     <thead>
                                         <tr className="border-b dark:border-gray-700">
-                                            <th className="text-left py-3 px-4">Tarih</th>
-                                            <th className="text-left py-3 px-4">Tip</th>
-                                            <th className="text-left py-3 px-4">Açıklama</th>
-                                            <th className="text-left py-3 px-4">Ödeme Yapan/Alan</th>
-                                            <th className="text-right py-3 px-4">Tutar</th>
-                                            <th className="text-center py-3 px-4">Durum</th>
-                                            <th className="text-center py-3 px-4">İşlem</th>
+                                            <th className="text-left py-3 px-4">Date</th>
+                                            <th className="text-left py-3 px-4">Type</th>
+                                            <th className="text-left py-3 px-4">Description</th>
+                                            <th className="text-left py-3 px-4">Payor/Payee</th>
+                                            <th className="text-right py-3 px-4">Amount</th>
+                                            <th className="text-center py-3 px-4">Status</th>
+                                            <th className="text-center py-3 px-4">Action</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -670,7 +725,7 @@ export default function TrustAccounting() {
                                                             tx.status === 'VOIDED' ? 'bg-gray-100 text-gray-800' :
                                                                 'bg-red-100 text-red-800'
                                                         }`}>
-                                                        {tx.isVoided ? 'İPTAL' : tx.status}
+                                                        {tx.isVoided ? 'VOIDED' : tx.status}
                                                     </span>
                                                 </td>
                                                 <td className="py-3 px-4 text-center">
@@ -687,7 +742,7 @@ export default function TrustAccounting() {
                                                         <button
                                                             onClick={() => handleVoidTransaction(tx.id)}
                                                             className="text-red-600 hover:text-red-800"
-                                                            title="İptal Et"
+                                                            title="Void"
                                                         >
                                                             <Ban className="w-4 h-4" />
                                                         </button>
@@ -705,21 +760,21 @@ export default function TrustAccounting() {
                 {/* Reconciliation Tab */}
                 {activeTab === 'reconciliation' && (
                     <div className="space-y-4">
-                        <h2 className="text-lg font-semibold">Mutabakat Kayıtları</h2>
+                        <h2 className="text-lg font-semibold">Reconciliation Records</h2>
                         {reconciliations.length === 0 ? (
-                            <p className="text-gray-500">Henüz mutabakat kaydı bulunmuyor.</p>
+                            <p className="text-gray-500">No reconciliation records yet.</p>
                         ) : (
                             <div className="overflow-x-auto">
                                 <table className="w-full">
                                     <thead>
                                         <tr className="border-b dark:border-gray-700">
-                                            <th className="text-left py-3 px-4">Dönem Sonu</th>
-                                            <th className="text-left py-3 px-4">Trust Hesabı</th>
-                                            <th className="text-right py-3 px-4">Banka Bakiyesi</th>
-                                            <th className="text-right py-3 px-4">Trust Bakiyesi</th>
-                                            <th className="text-right py-3 px-4">Müvekkil Toplamı</th>
-                                            <th className="text-center py-3 px-4">Durum</th>
-                                            <th className="text-center py-3 px-4">Onay</th>
+                                            <th className="text-left py-3 px-4">Period End</th>
+                                            <th className="text-left py-3 px-4">Trust Account</th>
+                                            <th className="text-right py-3 px-4">Bank Balance</th>
+                                            <th className="text-right py-3 px-4">Trust Balance</th>
+                                            <th className="text-right py-3 px-4">Client Total</th>
+                                            <th className="text-center py-3 px-4">Status</th>
+                                            <th className="text-center py-3 px-4">Approval</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -743,14 +798,14 @@ export default function TrustAccounting() {
                                                         ? 'bg-green-100 text-green-800'
                                                         : 'bg-red-100 text-red-800'
                                                         }`}>
-                                                        {recon.isReconciled ? '✓ Eşleşti' : `Fark: ${formatCurrency(Number(recon.discrepancyAmount || 0))}`}
+                                                        {recon.isReconciled ? '✓ Matched' : `Diff: ${formatCurrency(Number(recon.discrepancyAmount || 0))}`}
                                                     </span>
                                                 </td>
                                                 <td className="py-3 px-4 text-center">
                                                     {recon.approvedAt ? (
-                                                        <span className="text-green-600">✓ Onaylı</span>
+                                                        <span className="text-green-600">✓ Approved</span>
                                                     ) : (
-                                                        <span className="text-yellow-600">Bekliyor</span>
+                                                        <span className="text-yellow-600">Pending</span>
                                                     )}
                                                 </td>
                                             </tr>
@@ -767,7 +822,7 @@ export default function TrustAccounting() {
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         {/* Recent Transactions */}
                         <div>
-                            <h3 className="text-lg font-semibold mb-4">Son İşlemler</h3>
+                            <h3 className="text-lg font-semibold mb-4">Recent Transactions</h3>
                             <div className="space-y-2">
                                 {transactions.slice(0, 5).map(tx => (
                                     <div key={tx.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
@@ -795,16 +850,16 @@ export default function TrustAccounting() {
 
                         {/* Client Ledger Summary */}
                         <div>
-                            <h3 className="text-lg font-semibold mb-4">Müvekkil Bakiyeleri</h3>
+                            <h3 className="text-lg font-semibold mb-4">Client Balances</h3>
                             <div className="space-y-2">
                                 {ledgers.slice(0, 5).map(ledger => (
                                     <div key={ledger.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
                                         <div>
                                             <p className="font-medium text-sm">
-                                                {(ledger as any).client?.name || 'Müvekkil'}
+                                                {(ledger as any).client?.name || 'Client'}
                                             </p>
                                             <p className="text-xs text-gray-500">
-                                                {ledger.matterId || 'Genel Defter'}
+                                                {ledger.matterId || 'General Ledger'}
                                             </p>
                                         </div>
                                         <p className="font-semibold text-green-600">
@@ -824,11 +879,11 @@ export default function TrustAccounting() {
                     <div className="bg-white dark:bg-gray-900 rounded-xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
                         <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
                             <ArrowDownCircle className="w-5 h-5 text-green-600" />
-                            Trust Hesabına Yatırım
+                            Deposit to Trust Account
                         </h2>
                         <form onSubmit={handleDeposit} className="space-y-4">
                             <div>
-                                <label className="block text-sm font-medium mb-1">Trust Hesabı</label>
+                                <label className="block text-sm font-medium mb-1">Trust Account</label>
                                 <select
                                     value={depositForm.trustAccountId}
                                     onChange={e => setDepositForm({ ...depositForm, trustAccountId: e.target.value })}
@@ -852,29 +907,29 @@ export default function TrustAccounting() {
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium mb-1">Ödeme Yapan</label>
+                                <label className="block text-sm font-medium mb-1">Payor Name</label>
                                 <input
                                     type="text"
                                     value={depositForm.payorPayee}
                                     onChange={e => setDepositForm({ ...depositForm, payorPayee: e.target.value })}
                                     className="input w-full"
-                                    placeholder="Müvekkil adı veya kurum"
+                                    placeholder="Client name or organization"
                                     required
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium mb-1">Açıklama</label>
+                                <label className="block text-sm font-medium mb-1">Description</label>
                                 <input
                                     type="text"
                                     value={depositForm.description}
                                     onChange={e => setDepositForm({ ...depositForm, description: e.target.value })}
                                     className="input w-full"
-                                    placeholder="Avans, dosya masrafı, vb."
+                                    placeholder="Retainer, filing fees, etc."
                                     required
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium mb-1">Çek/Referans No (Opsiyonel)</label>
+                                <label className="block text-sm font-medium mb-1">Check/Reference # (Optional)</label>
                                 <input
                                     type="text"
                                     value={depositForm.checkNumber}
@@ -885,7 +940,7 @@ export default function TrustAccounting() {
 
                             {/* Allocations */}
                             <div className="border-t pt-4">
-                                <label className="block text-sm font-medium mb-2">Dağıtım (Müvekkil Defterlerine)</label>
+                                <label className="block text-sm font-medium mb-2">Allocation (to Client Ledgers)</label>
                                 {depositForm.allocations.map((alloc, idx) => (
                                     <div key={idx} className="flex gap-2 mb-2">
                                         <select
@@ -897,7 +952,7 @@ export default function TrustAccounting() {
                                             }}
                                             className="input flex-1"
                                         >
-                                            <option value="">Defter Seç...</option>
+                                            <option value="">Select Ledger...</option>
                                             {ledgers.filter(l => l.status === 'ACTIVE').map(l => (
                                                 <option key={l.id} value={l.id}>
                                                     {(l as any).client?.name || l.clientId} - {formatCurrency(Number(l.runningBalance))}
@@ -926,16 +981,16 @@ export default function TrustAccounting() {
                                     })}
                                     className="text-sm text-primary-600 hover:underline"
                                 >
-                                    + Başka defter ekle
+                                    + Add another ledger
                                 </button>
                             </div>
 
                             <div className="flex justify-end gap-2 pt-4">
                                 <button type="button" onClick={() => setShowDepositForm(false)} className="btn-secondary">
-                                    İptal
+                                    Cancel
                                 </button>
                                 <button type="submit" className="btn-primary">
-                                    Yatırımı Kaydet
+                                    Save Deposit
                                 </button>
                             </div>
                         </form>
@@ -949,11 +1004,11 @@ export default function TrustAccounting() {
                     <div className="bg-white dark:bg-gray-900 rounded-xl p-6 w-full max-w-lg">
                         <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
                             <ArrowUpCircle className="w-5 h-5 text-red-600" />
-                            Trust Hesabından Çekim
+                            Withdrawal from Trust Account
                         </h2>
                         <form onSubmit={handleWithdrawal} className="space-y-4">
                             <div>
-                                <label className="block text-sm font-medium mb-1">Trust Hesabı</label>
+                                <label className="block text-sm font-medium mb-1">Trust Account</label>
                                 <select
                                     value={withdrawalForm.trustAccountId}
                                     onChange={e => setWithdrawalForm({ ...withdrawalForm, trustAccountId: e.target.value })}
@@ -966,17 +1021,17 @@ export default function TrustAccounting() {
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium mb-1">Müvekkil Defteri</label>
+                                <label className="block text-sm font-medium mb-1">Client Ledger</label>
                                 <select
                                     value={withdrawalForm.ledgerId}
                                     onChange={e => setWithdrawalForm({ ...withdrawalForm, ledgerId: e.target.value })}
                                     className="input w-full"
                                     required
                                 >
-                                    <option value="">Defter Seç...</option>
+                                    <option value="">Select Ledger...</option>
                                     {ledgers.filter(l => l.status === 'ACTIVE' && Number(l.runningBalance) > 0).map(l => (
                                         <option key={l.id} value={l.id}>
-                                            {(l as any).client?.name || l.clientId} - Mevcut: {formatCurrency(Number(l.runningBalance))}
+                                            {(l as any).client?.name || l.clientId} - Available: {formatCurrency(Number(l.runningBalance))}
                                         </option>
                                     ))}
                                 </select>
@@ -993,29 +1048,29 @@ export default function TrustAccounting() {
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium mb-1">Ödeme Yapılan</label>
+                                <label className="block text-sm font-medium mb-1">Payee Name</label>
                                 <input
                                     type="text"
                                     value={withdrawalForm.payorPayee}
                                     onChange={e => setWithdrawalForm({ ...withdrawalForm, payorPayee: e.target.value })}
                                     className="input w-full"
-                                    placeholder="Mahkeme, uzman, müvekkil, vb."
+                                    placeholder="Court, expert, client, etc."
                                     required
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium mb-1">Açıklama</label>
+                                <label className="block text-sm font-medium mb-1">Description</label>
                                 <input
                                     type="text"
                                     value={withdrawalForm.description}
                                     onChange={e => setWithdrawalForm({ ...withdrawalForm, description: e.target.value })}
                                     className="input w-full"
-                                    placeholder="Harç, masraf, iade, vb."
+                                    placeholder="Fee, expense, refund, etc."
                                     required
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium mb-1">Çek No (Opsiyonel)</label>
+                                <label className="block text-sm font-medium mb-1">Check # (Optional)</label>
                                 <input
                                     type="text"
                                     value={withdrawalForm.checkNumber}
@@ -1026,10 +1081,10 @@ export default function TrustAccounting() {
 
                             <div className="flex justify-end gap-2 pt-4">
                                 <button type="button" onClick={() => setShowWithdrawalForm(false)} className="btn-secondary">
-                                    İptal
+                                    Cancel
                                 </button>
                                 <button type="submit" className="btn-primary">
-                                    Çekimi Kaydet
+                                    Save Withdrawal
                                 </button>
                             </div>
                         </form>
@@ -1043,11 +1098,11 @@ export default function TrustAccounting() {
                     <div className="bg-white dark:bg-gray-900 rounded-xl p-6 w-full max-w-lg">
                         <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
                             <Calculator className="w-5 h-5 text-blue-600" />
-                            Üç Yönlü Mutabakat
+                            Three-Way Reconciliation
                         </h2>
                         <form onSubmit={handleReconcile} className="space-y-4">
                             <div>
-                                <label className="block text-sm font-medium mb-1">Trust Hesabı</label>
+                                <label className="block text-sm font-medium mb-1">Trust Account</label>
                                 <select
                                     value={reconcileForm.trustAccountId}
                                     onChange={e => setReconcileForm({ ...reconcileForm, trustAccountId: e.target.value })}
@@ -1060,7 +1115,7 @@ export default function TrustAccounting() {
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium mb-1">Dönem Sonu Tarihi</label>
+                                <label className="block text-sm font-medium mb-1">Period End Date</label>
                                 <input
                                     type="date"
                                     value={reconcileForm.periodEnd}
@@ -1088,27 +1143,27 @@ export default function TrustAccounting() {
                                     onChange={e => setReconcileForm({ ...reconcileForm, notes: e.target.value })}
                                     className="input w-full"
                                     rows={3}
-                                    placeholder="Mutabakat notları..."
+                                    placeholder="Reconciliation notes..."
                                 />
                             </div>
 
                             <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg text-sm">
                                 <p className="font-semibold text-blue-800 dark:text-blue-200 mb-2">
-                                    Üç Yönlü Kontrol:
+                                    Three-Way Check:
                                 </p>
                                 <ul className="text-blue-700 dark:text-blue-300 space-y-1">
-                                    <li>✓ Banka Bakiyesi</li>
-                                    <li>✓ Trust Hesap Bakiyesi (Yazılım)</li>
-                                    <li>✓ Müvekkil Defterleri Toplamı</li>
+                                    <li>✓ Bank Statement Balance</li>
+                                    <li>✓ Trust Account Balance (Software)</li>
+                                    <li>✓ Client Ledgers Total</li>
                                 </ul>
                             </div>
 
                             <div className="flex justify-end gap-2 pt-4">
                                 <button type="button" onClick={() => setShowReconcileForm(false)} className="btn-secondary">
-                                    İptal
+                                    Cancel
                                 </button>
                                 <button type="submit" className="btn-primary">
-                                    Mutabakatı Gerçekleştir
+                                    Perform Reconciliation
                                 </button>
                             </div>
                         </form>
@@ -1190,6 +1245,98 @@ export default function TrustAccounting() {
                                 </button>
                                 <button type="submit" className="btn-primary">
                                     Create Ledger
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Create Trust Account Modal */}
+            {showCreateAccount && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div className="bg-white dark:bg-gray-900 rounded-xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+                        <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                            <Building2 className="w-5 h-5 text-green-600" />
+                            Create Trust Bank Account
+                        </h2>
+                        <form onSubmit={handleCreateAccount} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Account Name *</label>
+                                <input
+                                    type="text"
+                                    value={accountForm.name}
+                                    onChange={e => setAccountForm({ ...accountForm, name: e.target.value })}
+                                    className="input w-full"
+                                    placeholder="e.g., Primary IOLTA Account"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Bank Name *</label>
+                                <input
+                                    type="text"
+                                    value={accountForm.bankName}
+                                    onChange={e => setAccountForm({ ...accountForm, bankName: e.target.value })}
+                                    className="input w-full"
+                                    placeholder="e.g., Chase Bank, Bank of America"
+                                    required
+                                />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Routing/ABA Number *</label>
+                                    <input
+                                        type="text"
+                                        value={accountForm.routingNumber}
+                                        onChange={e => setAccountForm({ ...accountForm, routingNumber: e.target.value.replace(/\D/g, '').slice(0, 9) })}
+                                        className="input w-full"
+                                        placeholder="9 digits"
+                                        maxLength={9}
+                                        required
+                                    />
+                                    <p className="text-xs text-gray-500 mt-1">9-digit routing number</p>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Account Number *</label>
+                                    <input
+                                        type="text"
+                                        value={accountForm.accountNumber}
+                                        onChange={e => setAccountForm({ ...accountForm, accountNumber: e.target.value })}
+                                        className="input w-full"
+                                        placeholder="Account number"
+                                        required
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1">State/Jurisdiction *</label>
+                                <select
+                                    value={accountForm.jurisdiction}
+                                    onChange={e => setAccountForm({ ...accountForm, jurisdiction: e.target.value })}
+                                    className="input w-full"
+                                    required
+                                >
+                                    {usStates.map(state => (
+                                        <option key={state} value={state}>{state}</option>
+                                    ))}
+                                </select>
+                                <p className="text-xs text-gray-500 mt-1">Each state has different IOLTA rules</p>
+                            </div>
+
+                            <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg text-sm">
+                                <p className="text-blue-800 dark:text-blue-200">
+                                    <strong>Note:</strong> This account must be an IOLTA-compliant trust account at an approved financial institution.
+                                    Account numbers are encrypted and stored securely.
+                                </p>
+                            </div>
+
+                            <div className="flex justify-end gap-2 pt-4">
+                                <button type="button" onClick={() => setShowCreateAccount(false)} className="btn-secondary">
+                                    Cancel
+                                </button>
+                                <button type="submit" className="btn-primary">
+                                    Create Account
                                 </button>
                             </div>
                         </form>
