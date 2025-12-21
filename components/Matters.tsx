@@ -64,15 +64,16 @@ const Matters: React.FC = () => {
   });
 
   const courtOptions = [
-    'Ağır Ceza Mahkemesi',
-    'Asliye Ceza Mahkemesi',
-    'Asliye Hukuk Mahkemesi',
-    'Aile Mahkemesi',
-    'İş Mahkemesi',
-    'Sulh Hukuk Mahkemesi',
-    'İcra Hukuk Mahkemesi',
-    'Tüketici Mahkemesi',
-    'Fikri ve Sınai Haklar Mahkemesi'
+    'Criminal Court',
+    'Civil Court',
+    'Family Court',
+    'Labor Court',
+    'Small Claims Court',
+    'Bankruptcy Court',
+    'Consumer Court',
+    'Intellectual Property Court',
+    'Federal Court',
+    'Appeals Court'
   ];
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -478,7 +479,7 @@ const Matters: React.FC = () => {
       {/* Create Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-hidden animate-in fade-in zoom-in duration-200 flex flex-col">
             <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
               <h3 className="font-bold text-lg text-slate-800">{editData ? 'Edit Matter' : t('create_matter_modal')}</h3>
               <button onClick={() => { setShowModal(false); setEditData(null); }} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
@@ -502,7 +503,7 @@ const Matters: React.FC = () => {
                 setShowModal(false);
                 setEditData(null);
               }
-            } : handleSubmit} className="p-6 space-y-4">
+            } : handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">{t('case_name')}</label>
                 <input required type="text" className="w-full border border-gray-300 rounded-lg p-2.5 text-sm bg-white text-slate-900 focus:ring-2 focus:ring-primary-500 outline-none" value={editData ? editData.name || '' : formData.name} onChange={e => editData ? setEditData({ ...editData, name: e.target.value }) : setFormData({ ...formData, name: e.target.value })} />
@@ -571,7 +572,7 @@ const Matters: React.FC = () => {
                     value={editData ? editData.courtType || '' : formData.courtType}
                     options={courtOptions}
                     onChange={(val) => editData ? setEditData({ ...editData, courtType: val }) : setFormData({ ...formData, courtType: val })}
-                    placeholder="Mahkeme Seçiniz"
+                    placeholder="Select Court Type"
                   />
                 </div>
                 <div>
@@ -620,12 +621,12 @@ const Matters: React.FC = () => {
                       value={editData ? editData.bailStatus || 'None' : formData.bailStatus}
                       onChange={e => editData ? setEditData({ ...editData, bailStatus: e.target.value as any }) : setFormData({ ...formData, bailStatus: e.target.value })}
                     >
-                      <option value="None">Yok (None)</option>
-                      <option value="Set">Belirlendi (Set)</option>
-                      <option value="Posted">Yatırıldı (Posted)</option>
-                      <option value="Returned">İade Edildi (Returned)</option>
-                      <option value="Forfeited">Yakıldı (Forfeited)</option>
-                      <option value="Exonerated">Kaldırıldı (Exonerated)</option>
+                      <option value="None">None</option>
+                      <option value="Set">Set</option>
+                      <option value="Posted">Posted</option>
+                      <option value="Returned">Returned</option>
+                      <option value="Forfeited">Forfeited</option>
+                      <option value="Exonerated">Exonerated</option>
                     </select>
                   </div>
                   <div>
