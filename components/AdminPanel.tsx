@@ -113,7 +113,7 @@ const AdminPanel: React.FC = () => {
         setAccessDenied(true);
       } else {
         const { toast } = await import('./Toast');
-        toast.error('Kullanıcılar yüklenemedi');
+        toast.error('Failed to load users');
       }
     } finally {
       setLoading(false);
@@ -136,7 +136,7 @@ const AdminPanel: React.FC = () => {
         setAccessDenied(true);
       } else {
         const { toast } = await import('./Toast');
-        toast.error('Müvekkiller yüklenemedi');
+        toast.error('Failed to load clients');
       }
     } finally {
       setLoading(false);
@@ -186,17 +186,17 @@ const AdminPanel: React.FC = () => {
   const handleSaveUser = async () => {
     try {
       const { toast } = await import('./Toast');
-      
+
       if (!userForm.email || !userForm.name) {
-        toast.error('Email ve ad soyad zorunludur');
+        toast.error('Email and name are required');
         return;
       }
       if (!editingUser && !userForm.password) {
-        toast.error('Yeni kullanıcı için şifre zorunludur');
+        toast.error('Password is required for new user');
         return;
       }
       if (userForm.password && userForm.password.length < 6) {
-        toast.error('Şifre en az 6 karakter olmalıdır');
+        toast.error('Password must be at least 6 characters');
         return;
       }
 
@@ -207,19 +207,19 @@ const AdminPanel: React.FC = () => {
       }
       await loadUsers();
       setShowUserModal(false);
-      toast.success('Kullanıcı kaydedildi');
+      toast.success('User saved');
     } catch (error: any) {
       const { toast } = await import('./Toast');
-      toast.error(error.message || 'Kullanıcı kaydedilemedi');
+      toast.error(error.message || 'Failed to save user');
     }
   };
 
   const handleDeleteUser = async (id: string) => {
     const ok = await confirm({
-      title: 'Kullanıcıyı sil',
-      message: 'Bu kullanıcıyı silmek istediğinize emin misiniz?',
-      confirmText: 'Sil',
-      cancelText: 'İptal',
+      title: 'Delete User',
+      message: 'Are you sure you want to delete this user?',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
       variant: 'danger'
     });
     if (!ok) return;
@@ -227,10 +227,10 @@ const AdminPanel: React.FC = () => {
       const { toast } = await import('./Toast');
       await api.admin.deleteUser(id);
       await loadUsers();
-      toast.success('Kullanıcı silindi');
+      toast.success('User deleted');
     } catch (error: any) {
       const { toast } = await import('./Toast');
-      toast.error(error.message || 'Kullanıcı silinemedi');
+      toast.error(error.message || 'Failed to delete user');
     }
   };
 
@@ -259,14 +259,14 @@ const AdminPanel: React.FC = () => {
 
   const handleSaveClient = async () => {
     const { toast } = await import('./Toast');
-    
+
     try {
       if (!clientForm.name || !clientForm.email) {
-        toast.error('Ad soyad ve email zorunludur');
+        toast.error('Name and email are required');
         return;
       }
       if (clientForm.password && clientForm.password.length < 6) {
-        toast.error('Şifre en az 6 karakter olmalıdır');
+        toast.error('Password must be at least 6 characters');
         return;
       }
 
@@ -292,18 +292,18 @@ const AdminPanel: React.FC = () => {
       }
       await loadClients();
       setShowClientModal(false);
-      toast.success('Müvekkil kaydedildi');
+      toast.success('Client saved');
     } catch (error: any) {
-      toast.error(error.message || 'Müvekkil kaydedilemedi');
+      toast.error(error.message || 'Failed to save client');
     }
   };
 
   const handleDeleteClient = async (id: string) => {
     const ok = await confirm({
-      title: 'Müvekkili sil',
-      message: 'Bu müvekkili silmek istediğinize emin misiniz?',
-      confirmText: 'Sil',
-      cancelText: 'İptal',
+      title: 'Delete Client',
+      message: 'Are you sure you want to delete this client?',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
       variant: 'danger'
     });
     if (!ok) return;
@@ -311,10 +311,10 @@ const AdminPanel: React.FC = () => {
       const { toast } = await import('./Toast');
       await api.admin.deleteClient(id);
       await loadClients();
-      toast.success('Müvekkil silindi');
+      toast.success('Client deleted');
     } catch (error: any) {
       const { toast } = await import('./Toast');
-      toast.error(error.message || 'Müvekkil silinemedi');
+      toast.error(error.message || 'Failed to delete client');
     }
   };
 
@@ -324,12 +324,12 @@ const AdminPanel: React.FC = () => {
       <div className="h-full flex items-center justify-center bg-gray-50/50">
         <div className="text-center p-8 bg-white rounded-lg border border-gray-200 max-w-md">
           <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-slate-800 mb-2">Erişim Reddedildi</h2>
+          <h2 className="text-2xl font-bold text-slate-800 mb-2">Access Denied</h2>
           <p className="text-gray-600 mb-4">
-            Bu sayfaya erişmek için Admin yetkisine sahip olmanız gerekmektedir.
+            You need Admin privileges to access this page.
           </p>
           <p className="text-sm text-gray-500">
-            Sadece yetkili admin hesapları admin panelini kullanabilir.
+            Only authorized admin accounts can use the admin panel.
           </p>
         </div>
       </div>
@@ -344,7 +344,7 @@ const AdminPanel: React.FC = () => {
           <Shield className="w-6 h-6 text-slate-800" />
           <h1 className="text-2xl font-bold text-slate-800">Admin Panel</h1>
         </div>
-        <p className="text-sm text-gray-500">Kullanıcı ve müvekkil yönetimi - Sadece yetkili admin hesapları</p>
+        <p className="text-sm text-gray-500">User and client management - Admin access only</p>
       </div>
 
       {/* Tabs */}
@@ -352,36 +352,33 @@ const AdminPanel: React.FC = () => {
         <div className="flex gap-4">
           <button
             onClick={() => setActiveSection('users')}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              activeSection === 'users'
-                ? 'bg-slate-800 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeSection === 'users'
+              ? 'bg-slate-800 text-white'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
           >
             <Users className="w-4 h-4 inline mr-2" />
-            Avukatlar ({users.length})
+            Attorneys ({users.length})
           </button>
           <button
             onClick={() => setActiveSection('clients')}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              activeSection === 'clients'
-                ? 'bg-slate-800 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeSection === 'clients'
+              ? 'bg-slate-800 text-white'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
           >
             <UserIcon className="w-4 h-4 inline mr-2" />
-            Müvekkiller ({clients.length})
+            Clients ({clients.length})
           </button>
           <button
             onClick={() => setActiveSection('audit')}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              activeSection === 'audit'
-                ? 'bg-slate-800 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeSection === 'audit'
+              ? 'bg-slate-800 text-white'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
           >
             <Shield className="w-4 h-4 inline mr-2" />
-            Loglar
+            Logs
           </button>
         </div>
       </div>
@@ -391,27 +388,27 @@ const AdminPanel: React.FC = () => {
         {activeSection === 'users' && (
           <div>
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold text-slate-800">Avukat Yönetimi</h2>
+              <h2 className="text-xl font-bold text-slate-800">Attorney Management</h2>
               <button
                 onClick={handleCreateUser}
                 className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-900"
               >
                 <Plus className="w-4 h-4" />
-                Yeni Avukat Ekle
+                Add New Attorney
               </button>
             </div>
 
             {loading ? (
-              <div className="text-center py-8 text-gray-500">Yükleniyor...</div>
+              <div className="text-center py-8 text-gray-500">Loading...</div>
             ) : (
               <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
                 <table className="w-full">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Ad Soyad</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Full Name</th>
                       <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Email</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Rol</th>
-                      <th className="px-4 py-3 text-right text-sm font-semibold text-gray-700">İşlemler</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Role</th>
+                      <th className="px-4 py-3 text-right text-sm font-semibold text-gray-700">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
@@ -420,11 +417,10 @@ const AdminPanel: React.FC = () => {
                         <td className="px-4 py-3 text-sm text-gray-900">{user.name}</td>
                         <td className="px-4 py-3 text-sm text-gray-600">{user.email}</td>
                         <td className="px-4 py-3">
-                          <span className={`px-2 py-1 rounded text-xs font-medium ${
-                            user.role === 'Admin' ? 'bg-red-100 text-red-700' :
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${user.role === 'Admin' ? 'bg-red-100 text-red-700' :
                             user.role === 'Partner' ? 'bg-blue-100 text-blue-700' :
-                            'bg-gray-100 text-gray-700'
-                          }`}>
+                              'bg-gray-100 text-gray-700'
+                            }`}>
                             {user.role}
                           </span>
                         </td>
@@ -456,7 +452,7 @@ const AdminPanel: React.FC = () => {
         {activeSection === 'clients' && (
           <div>
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold text-slate-800">Müvekkil Yönetimi</h2>
+              <h2 className="text-xl font-bold text-slate-800">Client Management</h2>
               <button
                 onClick={() => {
                   setEditingClient(null);
@@ -483,22 +479,22 @@ const AdminPanel: React.FC = () => {
                 className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-900"
               >
                 <Plus className="w-4 h-4" />
-                Yeni Müvekkil Ekle
+                Add New Client
               </button>
             </div>
 
             {loading ? (
-              <div className="text-center py-8 text-gray-500">Yükleniyor...</div>
+              <div className="text-center py-8 text-gray-500">Loading...</div>
             ) : (
               <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
                 <table className="w-full">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Ad Soyad</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Full Name</th>
                       <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Email</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Durum</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Status</th>
                       <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Portal</th>
-                      <th className="px-4 py-3 text-right text-sm font-semibold text-gray-700">İşlemler</th>
+                      <th className="px-4 py-3 text-right text-sm font-semibold text-gray-700">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
@@ -507,17 +503,15 @@ const AdminPanel: React.FC = () => {
                         <td className="px-4 py-3 text-sm text-gray-900">{client.name}</td>
                         <td className="px-4 py-3 text-sm text-gray-600">{client.email}</td>
                         <td className="px-4 py-3">
-                          <span className={`px-2 py-1 rounded text-xs font-medium ${
-                            client.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
-                          }`}>
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${client.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
+                            }`}>
                             {client.status}
                           </span>
                         </td>
                         <td className="px-4 py-3">
-                          <span className={`px-2 py-1 rounded text-xs font-medium ${
-                            client.portalEnabled ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'
-                          }`}>
-                            {client.portalEnabled ? 'Aktif' : 'Pasif'}
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${client.portalEnabled ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'
+                            }`}>
+                            {client.portalEnabled ? 'Active' : 'Inactive'}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-right">
@@ -558,7 +552,7 @@ const AdminPanel: React.FC = () => {
           <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xl font-bold text-slate-800">
-                {editingUser ? 'Avukat Düzenle' : 'Yeni Avukat Ekle'}
+                {editingUser ? 'Edit Attorney' : 'Add New Attorney'}
               </h3>
               <button onClick={() => setShowUserModal(false)} className="text-gray-400 hover:text-gray-600">
                 <X className="w-5 h-5" />
@@ -567,13 +561,13 @@ const AdminPanel: React.FC = () => {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Ad Soyad *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
                   <input
                     type="text"
                     required
                     className="w-full border border-gray-300 rounded-lg p-2 text-sm"
                     value={userForm.name}
-                    onChange={e => setUserForm({...userForm, name: e.target.value})}
+                    onChange={e => setUserForm({ ...userForm, name: e.target.value })}
                   />
                 </div>
                 <div>
@@ -583,30 +577,30 @@ const AdminPanel: React.FC = () => {
                     required
                     className="w-full border border-gray-300 rounded-lg p-2 text-sm"
                     value={userForm.email}
-                    onChange={e => setUserForm({...userForm, email: e.target.value})}
+                    onChange={e => setUserForm({ ...userForm, email: e.target.value })}
                   />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Şifre {!editingUser && '*'}
+                    Password {!editingUser && '*'}
                   </label>
                   <input
                     type="password"
                     required={!editingUser}
                     className="w-full border border-gray-300 rounded-lg p-2 text-sm"
                     value={userForm.password}
-                    onChange={e => setUserForm({...userForm, password: e.target.value})}
-                    placeholder={editingUser ? 'Değiştirmek için yeni şifre girin' : ''}
+                    onChange={e => setUserForm({ ...userForm, password: e.target.value })}
+                    placeholder={editingUser ? 'Enter new password to change' : ''}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Rol *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Role *</label>
                   <select
                     className="w-full border border-gray-300 rounded-lg p-2 text-sm"
                     value={userForm.role}
-                    onChange={e => setUserForm({...userForm, role: e.target.value as any})}
+                    onChange={e => setUserForm({ ...userForm, role: e.target.value as any })}
                   >
                     <option value="Associate">Associate</option>
                     <option value="Partner">Partner</option>
@@ -616,87 +610,87 @@ const AdminPanel: React.FC = () => {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Telefon</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
                   <input
                     type="tel"
                     className="w-full border border-gray-300 rounded-lg p-2 text-sm"
                     value={userForm.phone}
-                    onChange={e => setUserForm({...userForm, phone: e.target.value})}
+                    onChange={e => setUserForm({ ...userForm, phone: e.target.value })}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Cep Telefonu</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Mobile Phone</label>
                   <input
                     type="tel"
                     className="w-full border border-gray-300 rounded-lg p-2 text-sm"
                     value={userForm.mobile}
-                    onChange={e => setUserForm({...userForm, mobile: e.target.value})}
+                    onChange={e => setUserForm({ ...userForm, mobile: e.target.value })}
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Adres</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
                 <input
                   type="text"
                   className="w-full border border-gray-300 rounded-lg p-2 text-sm"
                   value={userForm.address}
-                  onChange={e => setUserForm({...userForm, address: e.target.value})}
+                  onChange={e => setUserForm({ ...userForm, address: e.target.value })}
                 />
               </div>
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Şehir</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
                   <input
                     type="text"
                     className="w-full border border-gray-300 rounded-lg p-2 text-sm"
                     value={userForm.city}
-                    onChange={e => setUserForm({...userForm, city: e.target.value})}
+                    onChange={e => setUserForm({ ...userForm, city: e.target.value })}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Eyalet</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">State</label>
                   <input
                     type="text"
                     className="w-full border border-gray-300 rounded-lg p-2 text-sm"
                     value={userForm.state}
-                    onChange={e => setUserForm({...userForm, state: e.target.value})}
+                    onChange={e => setUserForm({ ...userForm, state: e.target.value })}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Posta Kodu</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">ZIP Code</label>
                   <input
                     type="text"
                     className="w-full border border-gray-300 rounded-lg p-2 text-sm"
                     value={userForm.zipCode}
-                    onChange={e => setUserForm({...userForm, zipCode: e.target.value})}
+                    onChange={e => setUserForm({ ...userForm, zipCode: e.target.value })}
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Ülke</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
                 <input
                   type="text"
                   className="w-full border border-gray-300 rounded-lg p-2 text-sm"
                   value={userForm.country}
-                  onChange={e => setUserForm({...userForm, country: e.target.value})}
+                  onChange={e => setUserForm({ ...userForm, country: e.target.value })}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Baro Numarası</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Bar Number</label>
                 <input
                   type="text"
                   className="w-full border border-gray-300 rounded-lg p-2 text-sm"
                   value={userForm.barNumber}
-                  onChange={e => setUserForm({...userForm, barNumber: e.target.value})}
+                  onChange={e => setUserForm({ ...userForm, barNumber: e.target.value })}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Biyografi</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Biography</label>
                 <textarea
                   rows={3}
                   className="w-full border border-gray-300 rounded-lg p-2 text-sm"
                   value={userForm.bio}
-                  onChange={e => setUserForm({...userForm, bio: e.target.value})}
+                  onChange={e => setUserForm({ ...userForm, bio: e.target.value })}
                 />
               </div>
             </div>
@@ -705,14 +699,14 @@ const AdminPanel: React.FC = () => {
                 onClick={() => setShowUserModal(false)}
                 className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50"
               >
-                İptal
+                Cancel
               </button>
               <button
                 onClick={handleSaveUser}
                 className="px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-medium hover:bg-slate-900 flex items-center gap-2"
               >
                 <Save className="w-4 h-4" />
-                Kaydet
+                Save
               </button>
             </div>
           </div>
@@ -725,7 +719,7 @@ const AdminPanel: React.FC = () => {
           <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xl font-bold text-slate-800">
-                {editingClient ? 'Müvekkil Düzenle' : 'Yeni Müvekkil Ekle'}
+                {editingClient ? 'Edit Client' : 'Add New Client'}
               </h3>
               <button onClick={() => setShowClientModal(false)} className="text-gray-400 hover:text-gray-600">
                 <X className="w-5 h-5" />
@@ -734,13 +728,13 @@ const AdminPanel: React.FC = () => {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Ad Soyad *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
                   <input
                     type="text"
                     required
                     className="w-full border border-gray-300 rounded-lg p-2 text-sm"
                     value={clientForm.name}
-                    onChange={e => setClientForm({...clientForm, name: e.target.value})}
+                    onChange={e => setClientForm({ ...clientForm, name: e.target.value })}
                   />
                 </div>
                 <div>
@@ -750,126 +744,126 @@ const AdminPanel: React.FC = () => {
                     required
                     className="w-full border border-gray-300 rounded-lg p-2 text-sm"
                     value={clientForm.email}
-                    onChange={e => setClientForm({...clientForm, email: e.target.value})}
+                    onChange={e => setClientForm({ ...clientForm, email: e.target.value })}
                   />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Tip</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
                   <select
                     className="w-full border border-gray-300 rounded-lg p-2 text-sm"
                     value={clientForm.type}
-                    onChange={e => setClientForm({...clientForm, type: e.target.value})}
+                    onChange={e => setClientForm({ ...clientForm, type: e.target.value })}
                   >
-                    <option value="Individual">Bireysel</option>
-                    <option value="Corporate">Kurumsal</option>
+                    <option value="Individual">Individual</option>
+                    <option value="Corporate">Corporate</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Durum</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
                   <select
                     className="w-full border border-gray-300 rounded-lg p-2 text-sm"
                     value={clientForm.status}
-                    onChange={e => setClientForm({...clientForm, status: e.target.value})}
+                    onChange={e => setClientForm({ ...clientForm, status: e.target.value })}
                   >
-                    <option value="Active">Aktif</option>
-                    <option value="Inactive">Pasif</option>
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
                   </select>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Telefon</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
                   <input
                     type="tel"
                     className="w-full border border-gray-300 rounded-lg p-2 text-sm"
                     value={clientForm.phone}
-                    onChange={e => setClientForm({...clientForm, phone: e.target.value})}
+                    onChange={e => setClientForm({ ...clientForm, phone: e.target.value })}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Cep Telefonu</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Mobile Phone</label>
                   <input
                     type="tel"
                     className="w-full border border-gray-300 rounded-lg p-2 text-sm"
                     value={clientForm.mobile}
-                    onChange={e => setClientForm({...clientForm, mobile: e.target.value})}
+                    onChange={e => setClientForm({ ...clientForm, mobile: e.target.value })}
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Şirket</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Company</label>
                 <input
                   type="text"
                   className="w-full border border-gray-300 rounded-lg p-2 text-sm"
                   value={clientForm.company}
-                  onChange={e => setClientForm({...clientForm, company: e.target.value})}
+                  onChange={e => setClientForm({ ...clientForm, company: e.target.value })}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Adres</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
                 <input
                   type="text"
                   className="w-full border border-gray-300 rounded-lg p-2 text-sm"
                   value={clientForm.address}
-                  onChange={e => setClientForm({...clientForm, address: e.target.value})}
+                  onChange={e => setClientForm({ ...clientForm, address: e.target.value })}
                 />
               </div>
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Şehir</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
                   <input
                     type="text"
                     className="w-full border border-gray-300 rounded-lg p-2 text-sm"
                     value={clientForm.city}
-                    onChange={e => setClientForm({...clientForm, city: e.target.value})}
+                    onChange={e => setClientForm({ ...clientForm, city: e.target.value })}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Eyalet</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">State</label>
                   <input
                     type="text"
                     className="w-full border border-gray-300 rounded-lg p-2 text-sm"
                     value={clientForm.state}
-                    onChange={e => setClientForm({...clientForm, state: e.target.value})}
+                    onChange={e => setClientForm({ ...clientForm, state: e.target.value })}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Posta Kodu</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">ZIP Code</label>
                   <input
                     type="text"
                     className="w-full border border-gray-300 rounded-lg p-2 text-sm"
                     value={clientForm.zipCode}
-                    onChange={e => setClientForm({...clientForm, zipCode: e.target.value})}
+                    onChange={e => setClientForm({ ...clientForm, zipCode: e.target.value })}
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Ülke</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
                 <input
                   type="text"
                   className="w-full border border-gray-300 rounded-lg p-2 text-sm"
                   value={clientForm.country}
-                  onChange={e => setClientForm({...clientForm, country: e.target.value})}
+                  onChange={e => setClientForm({ ...clientForm, country: e.target.value })}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Vergi Numarası</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Tax ID</label>
                 <input
                   type="text"
                   className="w-full border border-gray-300 rounded-lg p-2 text-sm"
                   value={clientForm.taxId}
-                  onChange={e => setClientForm({...clientForm, taxId: e.target.value})}
+                  onChange={e => setClientForm({ ...clientForm, taxId: e.target.value })}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Notlar</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
                 <textarea
                   rows={3}
                   className="w-full border border-gray-300 rounded-lg p-2 text-sm"
                   value={clientForm.notes}
-                  onChange={e => setClientForm({...clientForm, notes: e.target.value})}
+                  onChange={e => setClientForm({ ...clientForm, notes: e.target.value })}
                 />
               </div>
               <div className="border-t pt-4 space-y-4">
@@ -879,24 +873,24 @@ const AdminPanel: React.FC = () => {
                     id="portalEnabled"
                     className="w-4 h-4"
                     checked={clientForm.portalEnabled}
-                    onChange={e => setClientForm({...clientForm, portalEnabled: e.target.checked})}
+                    onChange={e => setClientForm({ ...clientForm, portalEnabled: e.target.checked })}
                   />
                   <label htmlFor="portalEnabled" className="text-sm font-medium text-gray-700">
-                    Müvekkil Portalı Erişimi Aktif
+                    Client Portal Access Enabled
                   </label>
                 </div>
                 {clientForm.portalEnabled && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Portal Şifresi {editingClient ? '(Değiştirmek için yeni şifre girin)' : '*'}
+                      Portal Password {editingClient ? '(Enter new password to change)' : '*'}
                     </label>
                     <input
                       type="password"
                       required={!editingClient && clientForm.portalEnabled}
                       className="w-full border border-gray-300 rounded-lg p-2 text-sm"
                       value={clientForm.password}
-                      onChange={e => setClientForm({...clientForm, password: e.target.value})}
-                      placeholder="En az 6 karakter"
+                      onChange={e => setClientForm({ ...clientForm, password: e.target.value })}
+                      placeholder="At least 6 characters"
                     />
                   </div>
                 )}
@@ -907,14 +901,14 @@ const AdminPanel: React.FC = () => {
                 onClick={() => setShowClientModal(false)}
                 className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50"
               >
-                İptal
+                Cancel
               </button>
               <button
                 onClick={handleSaveClient}
                 className="px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-medium hover:bg-slate-900 flex items-center gap-2"
               >
                 <Save className="w-4 h-4" />
-                Kaydet
+                Save
               </button>
             </div>
           </div>

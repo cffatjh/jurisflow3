@@ -91,7 +91,7 @@ const ClientAppointments: React.FC<ClientAppointmentsProps> = ({ clientId }) => 
 
     const formatDate = (dateStr: string) => {
         const date = new Date(dateStr);
-        return date.toLocaleDateString('tr-TR', {
+        return date.toLocaleDateString('en-US', {
             weekday: 'long',
             year: 'numeric',
             month: 'long',
@@ -115,15 +115,15 @@ const ClientAppointments: React.FC<ClientAppointmentsProps> = ({ clientId }) => 
                 {/* Header */}
                 <div className="flex items-center justify-between mb-6">
                     <div>
-                        <h2 className="text-2xl font-bold text-gray-900">Randevu Taleplerim</h2>
-                        <p className="text-gray-600 mt-1">Avukatınızdan randevu talep edin</p>
+                        <h2 className="text-2xl font-bold text-gray-900">My Appointments</h2>
+                        <p className="text-gray-600 mt-1">Request appointments with your attorney</p>
                     </div>
                     <button
                         onClick={() => setShowForm(true)}
                         className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                     >
                         <Plus className="w-5 h-5" />
-                        Yeni Randevu Talebi
+                        New Appointment Request
                     </button>
                 </div>
 
@@ -131,7 +131,7 @@ const ClientAppointments: React.FC<ClientAppointmentsProps> = ({ clientId }) => 
                 {showForm && (
                     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
                         <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-lg font-semibold">Yeni Randevu Talebi</h3>
+                            <h3 className="text-lg font-semibold">New Appointment Request</h3>
                             <button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-gray-600">
                                 <X className="w-5 h-5" />
                             </button>
@@ -140,7 +140,7 @@ const ClientAppointments: React.FC<ClientAppointmentsProps> = ({ clientId }) => 
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Tarih</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
                                     <input
                                         type="date"
                                         value={formData.requestedDate}
@@ -151,7 +151,7 @@ const ClientAppointments: React.FC<ClientAppointmentsProps> = ({ clientId }) => 
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Saat</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Time</label>
                                     <input
                                         type="time"
                                         value={formData.requestedTime}
@@ -164,42 +164,42 @@ const ClientAppointments: React.FC<ClientAppointmentsProps> = ({ clientId }) => 
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Randevu Türü</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Appointment Type</label>
                                     <select
                                         value={formData.type}
                                         onChange={(e) => setFormData({ ...formData, type: e.target.value as any })}
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                     >
-                                        <option value="consultation">Danışmanlık</option>
-                                        <option value="meeting">Toplantı</option>
-                                        <option value="call">Telefon Görüşmesi</option>
-                                        <option value="court">Duruşma</option>
+                                        <option value="consultation">Consultation</option>
+                                        <option value="meeting">Meeting</option>
+                                        <option value="call">Phone Call</option>
+                                        <option value="court">Court Hearing</option>
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Süre (dakika)</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Duration (minutes)</label>
                                     <select
                                         value={formData.duration}
                                         onChange={(e) => setFormData({ ...formData, duration: parseInt(e.target.value) })}
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                     >
-                                        <option value={15}>15 dakika</option>
-                                        <option value={30}>30 dakika</option>
-                                        <option value={45}>45 dakika</option>
-                                        <option value={60}>1 saat</option>
-                                        <option value={90}>1.5 saat</option>
-                                        <option value={120}>2 saat</option>
+                                        <option value={15}>15 minutes</option>
+                                        <option value={30}>30 minutes</option>
+                                        <option value={45}>45 minutes</option>
+                                        <option value={60}>1 hour</option>
+                                        <option value={90}>1.5 hours</option>
+                                        <option value={120}>2 hours</option>
                                     </select>
                                 </div>
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Notlar (opsiyonel)</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Notes (optional)</label>
                                 <textarea
                                     value={formData.notes}
                                     onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                                     rows={3}
-                                    placeholder="Randevu ile ilgili notlarınız..."
+                                    placeholder="Notes about the appointment..."
                                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                 />
                             </div>
@@ -210,13 +210,13 @@ const ClientAppointments: React.FC<ClientAppointmentsProps> = ({ clientId }) => 
                                     onClick={() => setShowForm(false)}
                                     className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
                                 >
-                                    İptal
+                                    Cancel
                                 </button>
                                 <button
                                     type="submit"
                                     className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                                 >
-                                    Talep Gönder
+                                    Submit Request
                                 </button>
                             </div>
                         </form>
@@ -227,14 +227,14 @@ const ClientAppointments: React.FC<ClientAppointmentsProps> = ({ clientId }) => 
                 {appointments.length === 0 ? (
                     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
                         <Calendar className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                        <h3 className="text-lg font-medium text-gray-900 mb-2">Henüz randevu talebiniz yok</h3>
-                        <p className="text-gray-500 mb-4">Avukatınızdan randevu talep etmek için yukarıdaki butonu kullanın.</p>
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">You have no appointment requests</h3>
+                        <p className="text-gray-500 mb-4">Use the button above to request an appointment with your attorney.</p>
                         <button
                             onClick={() => setShowForm(true)}
                             className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                         >
                             <Plus className="w-5 h-5" />
-                            İlk Randevunuzu Talep Edin
+                            Request Your First Appointment
                         </button>
                     </div>
                 ) : (
@@ -247,16 +247,16 @@ const ClientAppointments: React.FC<ClientAppointmentsProps> = ({ clientId }) => 
                                         <div>
                                             <div className="flex items-center gap-3 mb-1">
                                                 <h3 className="font-semibold text-gray-900 capitalize">
-                                                    {appointment.type === 'consultation' && 'Danışmanlık'}
-                                                    {appointment.type === 'meeting' && 'Toplantı'}
-                                                    {appointment.type === 'call' && 'Telefon Görüşmesi'}
-                                                    {appointment.type === 'court' && 'Duruşma'}
+                                                    {appointment.type === 'consultation' && 'Consultation'}
+                                                    {appointment.type === 'meeting' && 'Meeting'}
+                                                    {appointment.type === 'call' && 'Phone Call'}
+                                                    {appointment.type === 'court' && 'Court Hearing'}
                                                 </h3>
                                                 <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${getStatusColor(appointment.status)}`}>
-                                                    {appointment.status === 'pending' && 'Beklemede'}
-                                                    {appointment.status === 'approved' && 'Onaylandı'}
-                                                    {appointment.status === 'rejected' && 'Reddedildi'}
-                                                    {appointment.status === 'cancelled' && 'İptal Edildi'}
+                                                    {appointment.status === 'pending' && 'Pending'}
+                                                    {appointment.status === 'approved' && 'Approved'}
+                                                    {appointment.status === 'rejected' && 'Rejected'}
+                                                    {appointment.status === 'cancelled' && 'Cancelled'}
                                                 </span>
                                             </div>
                                             <div className="flex items-center gap-4 text-sm text-gray-600">
@@ -266,7 +266,7 @@ const ClientAppointments: React.FC<ClientAppointmentsProps> = ({ clientId }) => 
                                                 </span>
                                                 <span className="flex items-center gap-1">
                                                     <Clock className="w-4 h-4" />
-                                                    {appointment.duration} dakika
+                                                    {appointment.duration} minutes
                                                 </span>
                                             </div>
                                             {appointment.notes && (
@@ -275,7 +275,7 @@ const ClientAppointments: React.FC<ClientAppointmentsProps> = ({ clientId }) => 
                                             {appointment.approvedDate && appointment.status === 'approved' && (
                                                 <div className="mt-2 flex items-center gap-2 text-green-600 text-sm">
                                                     <Check className="w-4 h-4" />
-                                                    Onaylanan tarih: {formatDate(appointment.approvedDate)}
+                                                    Approved date: {formatDate(appointment.approvedDate)}
                                                 </div>
                                             )}
                                         </div>

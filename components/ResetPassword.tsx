@@ -6,7 +6,7 @@ import { api } from '../services/api';
 const ResetPassword: React.FC = () => {
   const { t } = useTranslation();
   const [token, setToken] = useState<string | null>(null);
-  
+
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -19,10 +19,10 @@ const ResetPassword: React.FC = () => {
     const urlParams = new URLSearchParams(window.location.search);
     const urlToken = urlParams.get('token');
     setToken(urlToken);
-    
+
     if (!urlToken) {
       setValidToken(false);
-      setError('Geçersiz veya eksik token. Lütfen email\'inizdeki bağlantıyı kullanın.');
+      setError('Invalid or missing token. Please use the link from your email.');
     }
   }, []);
 
@@ -32,17 +32,17 @@ const ResetPassword: React.FC = () => {
     setMessage('');
 
     if (password !== confirmPassword) {
-      setError('Şifreler eşleşmiyor');
+      setError('Passwords do not match');
       return;
     }
 
     if (password.length < 6) {
-      setError('Şifre en az 6 karakter olmalıdır');
+      setError('Password must be at least 6 characters');
       return;
     }
 
     if (!token) {
-      setError('Token bulunamadı');
+      setError('Token not found');
       return;
     }
 
@@ -50,12 +50,12 @@ const ResetPassword: React.FC = () => {
 
     try {
       await api.resetPassword(token, password);
-      setMessage('Şifreniz başarıyla sıfırlandı! Giriş sayfasına yönlendiriliyorsunuz...');
+      setMessage('Your password has been reset successfully! Redirecting to login...');
       setTimeout(() => {
         window.location.href = '/';
       }, 2000);
     } catch (err: any) {
-      setError(err.message || 'Şifre sıfırlanırken bir hata oluştu. Token geçersiz veya süresi dolmuş olabilir.');
+      setError(err.message || 'An error occurred while resetting password. Token may be invalid or expired.');
       setValidToken(false);
     } finally {
       setLoading(false);
@@ -67,14 +67,14 @@ const ResetPassword: React.FC = () => {
       <div className="min-h-screen w-full flex flex-col justify-center items-center bg-white">
         <div className="w-full max-w-md px-6 py-8 text-center">
           <Lock className="w-16 h-16 text-red-500 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-slate-800 mb-2">Geçersiz Token</h1>
-          <p className="text-gray-600 mb-6">Şifre sıfırlama bağlantısı geçersiz veya süresi dolmuş.</p>
+          <h1 className="text-2xl font-bold text-slate-800 mb-2">Invalid Token</h1>
+          <p className="text-gray-600 mb-6">Password reset link is invalid or expired.</p>
           <a
             href="/forgot-password"
             className="inline-flex items-center gap-2 text-sm text-primary-600 hover:text-primary-700"
           >
             <ArrowLeft className="w-4 h-4" />
-            Yeni şifre sıfırlama isteği gönder
+            Send new password reset request
           </a>
         </div>
       </div>
@@ -84,40 +84,40 @@ const ResetPassword: React.FC = () => {
   return (
     <div className="min-h-screen w-full flex flex-col justify-center items-center bg-white relative overflow-hidden font-sans">
       <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-600 via-indigo-600 to-slate-900"></div>
-      
+
       <div className="w-full max-w-md px-6 py-8">
         <div className="mb-8 text-center">
           <div className="flex items-center justify-center gap-3 mb-4">
             <Scale className="w-8 h-8 text-slate-800" />
             <span className="text-2xl font-bold text-slate-800">Juris<span className="text-primary-500">Flow</span></span>
           </div>
-          <h1 className="text-2xl font-bold text-slate-800 mb-2">Yeni Şifre Belirle</h1>
-          <p className="text-gray-600">Yeni şifrenizi girin</p>
+          <h1 className="text-2xl font-bold text-slate-800 mb-2">Set New Password</h1>
+          <p className="text-gray-600">Enter your new password</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Yeni Şifre</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">New Password</label>
             <input
               type="password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              placeholder="En az 6 karakter"
+              placeholder="At least 6 characters"
               minLength={6}
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Şifre Tekrar</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Confirm Password</label>
             <input
               type="password"
               required
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              placeholder="Şifrenizi tekrar girin"
+              placeholder="Confirm your password"
               minLength={6}
             />
           </div>
@@ -139,7 +139,7 @@ const ResetPassword: React.FC = () => {
             disabled={loading || !validToken}
             className="w-full py-3 bg-slate-800 text-white rounded-lg font-bold hover:bg-slate-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {loading ? 'Sıfırlanıyor...' : 'Şifreyi Sıfırla'}
+            {loading ? 'Resetting...' : 'Reset Password'}
           </button>
 
           <div className="text-center">
@@ -148,7 +148,7 @@ const ResetPassword: React.FC = () => {
               className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-slate-800"
             >
               <ArrowLeft className="w-4 h-4" />
-              Giriş sayfasına dön
+              Return to login page
             </a>
           </div>
         </form>

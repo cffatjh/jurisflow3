@@ -27,11 +27,11 @@ const VideoCall: React.FC = () => {
     startTime: new Date(Date.now() + 60 * 60 * 1000).toISOString().slice(0, 16), // 1 hour from now
     duration: 60
   });
-  
+
   // Check for access tokens
   const [googleAccessToken, setGoogleAccessToken] = useState<string | null>(
-    localStorage.getItem('google_meet_access_token') || 
-    localStorage.getItem('gmail_access_token') || 
+    localStorage.getItem('google_meet_access_token') ||
+    localStorage.getItem('gmail_access_token') ||
     localStorage.getItem('google_docs_access_token')
   );
   const [microsoftAccessToken, setMicrosoftAccessToken] = useState<string | null>(
@@ -47,14 +47,14 @@ const VideoCall: React.FC = () => {
     if (savedRooms) {
       setRooms(JSON.parse(savedRooms));
     }
-    
+
     // Update access tokens from localStorage
-    const googleToken = localStorage.getItem('google_meet_access_token') || 
-                       localStorage.getItem('gmail_access_token') || 
-                       localStorage.getItem('google_docs_access_token');
+    const googleToken = localStorage.getItem('google_meet_access_token') ||
+      localStorage.getItem('gmail_access_token') ||
+      localStorage.getItem('google_docs_access_token');
     const microsoftToken = localStorage.getItem('microsoft_access_token');
     const zoomToken = localStorage.getItem('zoom_access_token');
-    
+
     setGoogleAccessToken(googleToken);
     setMicrosoftAccessToken(microsoftToken);
     setZoomAccessToken(zoomToken);
@@ -76,16 +76,16 @@ const VideoCall: React.FC = () => {
 
   const handleCreateRoom = async () => {
     if (!newRoom.title.trim()) {
-      toast.error('Lütfen görüşme başlığını girin');
+      toast.error('Please enter a meeting title');
       return;
     }
 
     setCreating(true);
-    
+
     try {
       const startTime = new Date(newRoom.startTime);
       const endTime = new Date(startTime.getTime() + (newRoom.duration * 60 * 1000));
-      
+
       let link = '';
       let meetingData: any = {};
 
@@ -96,7 +96,7 @@ const VideoCall: React.FC = () => {
             setCreating(false);
             return;
           }
-          
+
           const meetResponse = await fetch('/api/video-calls/google-meet', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -108,12 +108,12 @@ const VideoCall: React.FC = () => {
               description: newRoom.matterId ? `Related to case: ${newRoom.matterId}` : ''
             })
           });
-          
+
           if (!meetResponse.ok) {
             const error = await meetResponse.json();
             throw new Error(error.message || 'Failed to create Google Meet');
           }
-          
+
           meetingData = await meetResponse.json();
           link = meetingData.meetLink || meetingData.hangoutLink || '';
           break;
@@ -124,7 +124,7 @@ const VideoCall: React.FC = () => {
             setCreating(false);
             return;
           }
-          
+
           const teamsResponse = await fetch('/api/video-calls/teams', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -136,12 +136,12 @@ const VideoCall: React.FC = () => {
               content: newRoom.matterId ? `<p>Related to case: ${newRoom.matterId}</p>` : ''
             })
           });
-          
+
           if (!teamsResponse.ok) {
             const error = await teamsResponse.json();
             throw new Error(error.message || 'Failed to create Teams meeting');
           }
-          
+
           meetingData = await teamsResponse.json();
           link = meetingData.joinUrl || meetingData.meetingUrl || '';
           break;
@@ -152,7 +152,7 @@ const VideoCall: React.FC = () => {
             setCreating(false);
             return;
           }
-          
+
           const zoomResponse = await fetch('/api/video-calls/zoom', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -163,12 +163,12 @@ const VideoCall: React.FC = () => {
               duration: newRoom.duration
             })
           });
-          
+
           if (!zoomResponse.ok) {
             const error = await zoomResponse.json();
             throw new Error(error.message || 'Failed to create Zoom meeting');
           }
-          
+
           meetingData = await zoomResponse.json();
           link = meetingData.joinUrl || '';
           break;
@@ -186,20 +186,20 @@ const VideoCall: React.FC = () => {
         matterId: newRoom.matterId || undefined,
         createdAt: new Date().toISOString()
       };
-      
+
       const updatedRooms = [room, ...rooms];
       setRooms(updatedRooms);
       localStorage.setItem('video_call_rooms', JSON.stringify(updatedRooms));
-      
+
       setShowCreateModal(false);
-      setNewRoom({ 
-        title: '', 
-        type: 'google-meet', 
+      setNewRoom({
+        title: '',
+        type: 'google-meet',
         matterId: '',
         startTime: new Date(Date.now() + 60 * 60 * 1000).toISOString().slice(0, 16),
         duration: 60
       });
-      
+
       toast.success('Meeting created successfully!');
     } catch (error: any) {
       console.error('Error creating meeting:', error);
@@ -287,12 +287,12 @@ const VideoCall: React.FC = () => {
                   <X className="w-4 h-4" />
                 </button>
               </div>
-              
+
               <div className="mb-4">
                 <p className="text-xs text-gray-500 mb-1">Meeting Link</p>
                 <p className="text-sm text-blue-600 truncate font-mono">{room.link}</p>
               </div>
-              
+
               <div className="flex gap-2">
                 <button
                   onClick={() => handleJoinRoom(room)}
@@ -311,7 +311,7 @@ const VideoCall: React.FC = () => {
                   📋
                 </button>
               </div>
-              
+
               <p className="text-xs text-gray-400 mt-3">
                 Created: {new Date(room.createdAt).toLocaleDateString()}
               </p>
@@ -333,7 +333,7 @@ const VideoCall: React.FC = () => {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            
+
             <div className="p-6 space-y-4">
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Meeting Title</label>
@@ -342,16 +342,16 @@ const VideoCall: React.FC = () => {
                   placeholder="Client Consultation"
                   className="w-full border border-gray-300 rounded-lg p-2.5 text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
                   value={newRoom.title}
-                  onChange={e => setNewRoom({...newRoom, title: e.target.value})}
+                  onChange={e => setNewRoom({ ...newRoom, title: e.target.value })}
                 />
               </div>
-              
+
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Platform</label>
                 <select
                   className="w-full border border-gray-300 rounded-lg p-2.5 text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
                   value={newRoom.type}
-                  onChange={e => setNewRoom({...newRoom, type: e.target.value as any})}
+                  onChange={e => setNewRoom({ ...newRoom, type: e.target.value as any })}
                 >
                   <option value="google-meet">
                     Google Meet {googleAccessToken ? '✓' : '(Connect Required)'}
@@ -391,18 +391,18 @@ const VideoCall: React.FC = () => {
                   </button>
                 )}
               </div>
-              
+
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Start Time</label>
                 <input
                   type="datetime-local"
                   className="w-full border border-gray-300 rounded-lg p-2.5 text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
                   value={newRoom.startTime}
-                  onChange={e => setNewRoom({...newRoom, startTime: e.target.value})}
+                  onChange={e => setNewRoom({ ...newRoom, startTime: e.target.value })}
                   min={new Date().toISOString().slice(0, 16)}
                 />
               </div>
-              
+
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Duration (minutes)</label>
                 <input
@@ -412,10 +412,10 @@ const VideoCall: React.FC = () => {
                   step="15"
                   className="w-full border border-gray-300 rounded-lg p-2.5 text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
                   value={newRoom.duration}
-                  onChange={e => setNewRoom({...newRoom, duration: parseInt(e.target.value) || 60})}
+                  onChange={e => setNewRoom({ ...newRoom, duration: parseInt(e.target.value) || 60 })}
                 />
               </div>
-              
+
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Related Case (Optional)</label>
                 <input
@@ -423,11 +423,11 @@ const VideoCall: React.FC = () => {
                   placeholder="Case number or name"
                   className="w-full border border-gray-300 rounded-lg p-2.5 text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
                   value={newRoom.matterId}
-                  onChange={e => setNewRoom({...newRoom, matterId: e.target.value})}
+                  onChange={e => setNewRoom({ ...newRoom, matterId: e.target.value })}
                 />
               </div>
             </div>
-            
+
             <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
               <button
                 onClick={() => setShowCreateModal(false)}

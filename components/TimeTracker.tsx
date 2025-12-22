@@ -106,11 +106,11 @@ const TimeTracker = () => {
             if (extractedAmount) setExpenseAmount(extractedAmount);
             if (extractedDesc) setExpenseDesc(`Fatura: ${extractedDesc}`);
 
-            toast.success('Fatura tarandı! Lütfen bilgileri kontrol edin.');
+            toast.success('Invoice scanned! Please verify the information.');
 
         } catch (error) {
             console.error(error);
-            toast.error('OCR işlemi başarısız oldu.');
+            toast.error('OCR operation failed.');
         } finally {
             setIsScanning(false);
             if (fileInputRef.current) fileInputRef.current.value = '';
@@ -304,7 +304,7 @@ const TimeTracker = () => {
                             <div className="absolute inset-0 bg-white/80 z-10 flex items-center justify-center rounded-xl backdrop-blur-sm">
                                 <div className="flex flex-col items-center">
                                     <div className="w-8 h-8 border-4 border-slate-900 border-t-transparent rounded-full animate-spin mb-2"></div>
-                                    <p className="text-sm font-bold text-slate-800">Fatura Taranıyor...</p>
+                                    <p className="text-sm font-bold text-slate-800">Scanning Invoice...</p>
                                 </div>
                             </div>
                         )}
