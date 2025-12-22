@@ -352,7 +352,7 @@ export default function TrustAccounting() {
                 name: accountForm.name,
                 bankName: accountForm.bankName,
                 routingNumber: accountForm.routingNumber,
-                accountNumberEnc: accountForm.accountNumber, // Will be encrypted on backend
+                accountNumber: accountForm.accountNumber, // Backend expects 'accountNumber'
                 jurisdiction: accountForm.jurisdiction
             });
             toast.success('Trust account created successfully');
