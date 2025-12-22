@@ -351,7 +351,43 @@ const ensureTestAccounts = async () => {
       });
     }
 
+    // Additional English Test Client Account
+    const testClientEmailEn = 'client@test.com';
+    const testClientPasswordEn = 'client123';
+    let testClientEn = await prisma.client.findUnique({ where: { email: testClientEmailEn } });
+    if (!testClientEn) {
+      const passwordHash = await bcrypt.hash(testClientPasswordEn, 10);
+      await prisma.client.create({
+        data: {
+          name: 'Test Client',
+          email: testClientEmailEn,
+          passwordHash,
+          portalEnabled: true,
+          type: 'Individual',
+          status: 'Active',
+          phone: '555-0100',
+          address: '123 Test Street',
+          city: 'New York',
+          state: 'NY',
+          zipCode: '10001',
+          country: 'USA'
+        }
+      });
+      console.log(`✅ Test Client created: ${testClientEmailEn}`);
+    } else if (!testClientEn.portalEnabled || !testClientEn.passwordHash) {
+      const passwordHash = await bcrypt.hash(testClientPasswordEn, 10);
+      await prisma.client.update({
+        where: { email: testClientEmailEn },
+        data: {
+          passwordHash,
+          portalEnabled: true
+        }
+      });
+      console.log(`✅ Test Client updated: ${testClientEmailEn}`);
+    }
+
     // JF Admin Accounts
+
     const jfAdmins = [
       { email: 'hilal@jf.com', password: 'hilal123', name: 'Hilal' },
       { email: 'tdeniz@jf.com', password: 'tdeniz123', name: 'TDeniz' }
