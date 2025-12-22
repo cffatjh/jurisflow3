@@ -896,7 +896,7 @@ export default function TrustAccounting() {
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium mb-1">Tutar ($)</label>
+                                <label className="block text-sm font-medium mb-1">Amount ($)</label>
                                 <input
                                     type="number"
                                     step="0.01"
@@ -969,7 +969,7 @@ export default function TrustAccounting() {
                                                 setDepositForm({ ...depositForm, allocations: newAllocs });
                                             }}
                                             className="input w-28"
-                                            placeholder="Tutar"
+                                            placeholder="Amount"
                                         />
                                     </div>
                                 ))}
@@ -1037,7 +1037,7 @@ export default function TrustAccounting() {
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium mb-1">Tutar ($)</label>
+                                <label className="block text-sm font-medium mb-1">Amount ($)</label>
                                 <input
                                     type="number"
                                     step="0.01"
@@ -1125,19 +1125,19 @@ export default function TrustAccounting() {
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium mb-1">Banka Ekstresi Bakiyesi ($)</label>
+                                <label className="block text-sm font-medium mb-1">Bank Statement Balance ($)</label>
                                 <input
                                     type="number"
                                     step="0.01"
                                     value={reconcileForm.bankStatementBalance}
                                     onChange={e => setReconcileForm({ ...reconcileForm, bankStatementBalance: e.target.value })}
                                     className="input w-full"
-                                    placeholder="Banka ekstresindeki bakiye"
+                                    placeholder="Balance from bank statement"
                                     required
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium mb-1">Notlar (Opsiyonel)</label>
+                                <label className="block text-sm font-medium mb-1">Notes (Optional)</label>
                                 <textarea
                                     value={reconcileForm.notes}
                                     onChange={e => setReconcileForm({ ...reconcileForm, notes: e.target.value })}
