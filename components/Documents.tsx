@@ -8,6 +8,7 @@ import mammoth from 'mammoth';
 import { googleDocsService } from '../services/googleDocsService';
 import { toast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
+import { getGoogleClientId } from '../services/googleConfig';
 
 // API base URL - production'da relative path kullan
 const API_BASE_URL = import.meta.env.PROD ? '' : 'http://localhost:3001';
@@ -51,12 +52,9 @@ const Documents: React.FC = () => {
   };
 
   const handleGoogleDocsConnect = () => {
-    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
+    const clientId = getGoogleClientId();
 
-    if (!clientId) {
-      toast.error('Google Client ID bulunamadı! Lütfen .env dosyasına VITE_GOOGLE_CLIENT_ID ekleyin. (Detay: GOOGLE_INTEGRATION_SETUP.md)');
-      return;
-    }
+    if (!clientId) return;
 
     const redirectUri = `${window.location.origin}/auth/google/callback`;
     const scope = 'https://www.googleapis.com/auth/documents.readonly https://www.googleapis.com/auth/drive.readonly';

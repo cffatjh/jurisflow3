@@ -1,5 +1,6 @@
 // Google Meet Service - Creates real Google Meet meetings via Calendar API
 import { toast } from '../components/Toast';
+import { getGoogleClientId } from './googleConfig';
 const CALENDAR_API_BASE = 'https://www.googleapis.com/calendar/v3';
 
 export interface GoogleMeetMeeting {
@@ -57,7 +58,7 @@ export const googleMeetService = {
     }
 
     const data = await response.json();
-    
+
     return {
       id: data.id,
       title: data.summary,
@@ -71,17 +72,16 @@ export const googleMeetService = {
 
   // Get OAuth2 authorization URL for Calendar API
   getAuthUrl: (): string => {
-    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
-    
+    const clientId = getGoogleClientId();
+
     if (!clientId) {
-      toast.error('Google Client ID bulunamadı! Lütfen .env dosyasına VITE_GOOGLE_CLIENT_ID ekleyin. (Detay: GOOGLE_INTEGRATION_SETUP.md)');
       throw new Error('VITE_GOOGLE_CLIENT_ID is not set in environment variables');
     }
-    
+
     const redirectUri = `${window.location.origin}/auth/google/callback`;
     const scope = 'https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events';
     const responseType = 'code';
-    
+
     return `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=${responseType}&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent`;
   }
 };

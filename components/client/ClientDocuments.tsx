@@ -5,6 +5,7 @@ import { Folder, FileText, Download, Plus, X } from '../Icons';
 import mammoth from 'mammoth';
 import { googleDocsService } from '../../services/googleDocsService';
 import { toast } from '../Toast';
+import { getGoogleClientId } from '../../services/googleConfig';
 
 const ClientDocuments: React.FC = () => {
   const { client } = useClientAuth();
@@ -29,12 +30,9 @@ const ClientDocuments: React.FC = () => {
   }, [googleDocsAccessToken]);
 
   const handleGoogleDocsConnect = () => {
-    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
+    const clientId = getGoogleClientId();
 
-    if (!clientId) {
-      toast.error('Google Client ID not found! Please add VITE_GOOGLE_CLIENT_ID to your .env file. (Details: GOOGLE_INTEGRATION_SETUP.md)');
-      return;
-    }
+    if (!clientId) return;
 
     const redirectUri = `${window.location.origin}/auth/google/callback`;
     const scope = 'https://www.googleapis.com/auth/documents.readonly https://www.googleapis.com/auth/drive.readonly';

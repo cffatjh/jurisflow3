@@ -51,6 +51,13 @@ router.get('/accounts', async (req: Request, res: Response) => {
     }
 });
 
+import { encrypt, decrypt } from '../utils/encryption';
+
+// ... existing imports
+
+// GEÇİCİ ÇÖZÜM: Mevcut veritabanında şifrelenmemiş veriler olabilir.
+// Bu yüzden okurken decrypt etmeyi deneyeceğiz.
+
 // POST /api/trust/accounts - Create trust account
 router.post('/accounts', async (req: Request, res: Response) => {
     try {
@@ -64,7 +71,7 @@ router.post('/accounts', async (req: Request, res: Response) => {
             data: {
                 name,
                 bankName,
-                accountNumberEnc: accountNumber, // TODO: Actually encrypt this
+                accountNumberEnc: encrypt(accountNumber), // Encrypting sensitive data
                 routingNumber,
                 jurisdiction,
                 status: 'ACTIVE',

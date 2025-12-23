@@ -6,6 +6,7 @@
 // 4. Add redirect URI: http://localhost:3000/auth/google/callback
 
 import { toast } from '../components/Toast';
+import { getGoogleClientId } from './googleConfig';
 const GMAIL_API_BASE = 'https://gmail.googleapis.com/gmail/v1';
 
 export interface GmailMessage {
@@ -22,17 +23,16 @@ export interface GmailMessage {
 export const gmailService = {
   // Get OAuth2 authorization URL
   getAuthUrl: (): string => {
-    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
-    
+    const clientId = getGoogleClientId();
+
     if (!clientId) {
-      toast.error('Google Client ID bulunamadı! Lütfen .env dosyasına VITE_GOOGLE_CLIENT_ID ekleyin. (Detay: GOOGLE_INTEGRATION_SETUP.md)');
-      throw new Error('VITE_GOOGLE_CLIENT_ID is not set in environment variables');
+      return '';
     }
-    
+
     const redirectUri = `${window.location.origin}/auth/google/callback`;
     const scope = 'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send';
     const responseType = 'code';
-    
+
     return `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=${responseType}&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent`;
   },
 
@@ -54,16 +54,16 @@ export const gmailService = {
       }
     });
     const data = await response.json();
-    
+
     if (!data.messages) return [];
-    
+
     // Fetch full message details
     const messagePromises = data.messages.map((msg: { id: string }) =>
       fetch(`${GMAIL_API_BASE}/users/me/messages/${msg.id}`, {
         headers: { 'Authorization': `Bearer ${accessToken}` }
       }).then(r => r.json())
     );
-    
+
     return Promise.all(messagePromises);
   },
 
@@ -76,9 +76,9 @@ export const gmailService = {
       '',
       body
     ].join('\n');
-    
+
     const encodedEmail = btoa(email).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-    
+
     await fetch(`${GMAIL_API_BASE}/users/me/messages/send`, {
       method: 'POST',
       headers: {
@@ -97,7 +97,7 @@ export const gmailService = {
     const from = headers.find(h => h.name === 'From')?.value || 'Unknown';
     const subject = headers.find(h => h.name === 'Subject')?.value || '(No Subject)';
     const date = headers.find(h => h.name === 'Date')?.value || new Date().toISOString();
-    
+
     return {
       from: from.replace(/<.*>/, '').trim(),
       subject,
