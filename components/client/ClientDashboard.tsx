@@ -32,13 +32,13 @@ const ClientDashboard: React.FC = () => {
             headers: { 'Authorization': `Bearer ${token}` }
           }),
         ]);
-        
+
         const mattersData = await mattersRes.json();
         const invoicesData = await invoicesRes.json();
         const docsData = await docsRes.json();
         const msgData = await msgRes.json();
         const notifData = await notifRes.json();
-        
+
         setMatters(mattersData);
         setInvoices(invoicesData);
         setDocuments(Array.isArray(docsData) ? docsData : []);
@@ -50,7 +50,7 @@ const ClientDashboard: React.FC = () => {
         setLoading(false);
       }
     };
-    
+
     loadData();
   }, []);
 
@@ -92,29 +92,29 @@ const ClientDashboard: React.FC = () => {
       {/* Today cards */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-bold text-slate-900">Bugün Ne Var?</h3>
+          <h3 className="text-lg font-bold text-slate-900">What's Today?</h3>
           <div className="text-xs text-gray-400">{new Date().toLocaleDateString()}</div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="p-4 rounded-xl border border-gray-200 bg-gray-50/50">
-            <div className="text-xs font-bold text-gray-400 uppercase">Yeni Mesaj</div>
+            <div className="text-xs font-bold text-gray-400 uppercase">New Message</div>
             <div className="mt-2 text-2xl font-bold text-slate-900">{unreadMessages}</div>
-            <div className="mt-1 text-xs text-gray-600">Okunmamış</div>
+            <div className="mt-1 text-xs text-gray-600">Unread</div>
           </div>
           <div className="p-4 rounded-xl border border-gray-200 bg-gray-50/50">
-            <div className="text-xs font-bold text-gray-400 uppercase">Bildirim</div>
+            <div className="text-xs font-bold text-gray-400 uppercase">Notification</div>
             <div className="mt-2 text-2xl font-bold text-slate-900">{unreadNotifs}</div>
-            <div className="mt-1 text-xs text-gray-600">Okunmamış</div>
+            <div className="mt-1 text-xs text-gray-600">Unread</div>
           </div>
           <div className="p-4 rounded-xl border border-gray-200 bg-gray-50/50">
-            <div className="text-xs font-bold text-gray-400 uppercase">Doküman</div>
+            <div className="text-xs font-bold text-gray-400 uppercase">Document</div>
             <div className="mt-2 text-2xl font-bold text-slate-900">{todayDocs}</div>
-            <div className="mt-1 text-xs text-gray-600">Bugün yüklenen/güncellenen</div>
+            <div className="mt-1 text-xs text-gray-600">Uploaded/Updated today</div>
           </div>
           <div className="p-4 rounded-xl border border-gray-200 bg-gray-50/50">
-            <div className="text-xs font-bold text-gray-400 uppercase">Ödeme</div>
+            <div className="text-xs font-bold text-gray-400 uppercase">Payment</div>
             <div className="mt-2 text-2xl font-bold text-slate-900">{unpaidInvoices}</div>
-            <div className="mt-1 text-xs text-gray-600">Bekleyen fatura</div>
+            <div className="mt-1 text-xs text-gray-600">Pending invoices</div>
           </div>
         </div>
       </div>
@@ -155,9 +155,8 @@ const ClientDashboard: React.FC = () => {
                   <div className="text-sm text-gray-600">Case #: {matter.caseNumber}</div>
                 </div>
                 <div className="text-right">
-                  <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                    matter.status === 'Open' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
-                  }`}>
+                  <span className={`px-3 py-1 rounded-full text-xs font-bold ${matter.status === 'Open' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
+                    }`}>
                     {matter.status}
                   </span>
                 </div>
@@ -184,11 +183,10 @@ const ClientDashboard: React.FC = () => {
                 </div>
                 <div className="text-right">
                   <div className="font-bold text-slate-900">${invoice.amount.toLocaleString()}</div>
-                  <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                    invoice.status === 'Paid' ? 'bg-green-100 text-green-700' :
-                    invoice.status === 'Overdue' ? 'bg-red-100 text-red-700' :
-                    'bg-yellow-100 text-yellow-700'
-                  }`}>
+                  <span className={`px-3 py-1 rounded-full text-xs font-bold ${invoice.status === 'Paid' ? 'bg-green-100 text-green-700' :
+                      invoice.status === 'Overdue' ? 'bg-red-100 text-red-700' :
+                        'bg-yellow-100 text-yellow-700'
+                    }`}>
                     {invoice.status}
                   </span>
                 </div>

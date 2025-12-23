@@ -30,12 +30,12 @@ const ClientDocuments: React.FC = () => {
 
   const handleGoogleDocsConnect = () => {
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
-    
+
     if (!clientId) {
-      toast.error('Google Client ID bulunamadı! Lütfen .env dosyasına VITE_GOOGLE_CLIENT_ID ekleyin. (Detay: GOOGLE_INTEGRATION_SETUP.md)');
+      toast.error('Google Client ID not found! Please add VITE_GOOGLE_CLIENT_ID to your .env file. (Details: GOOGLE_INTEGRATION_SETUP.md)');
       return;
     }
-    
+
     const redirectUri = `${window.location.origin}/auth/google/callback`;
     const scope = 'https://www.googleapis.com/auth/documents.readonly https://www.googleapis.com/auth/drive.readonly';
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent`;
@@ -44,7 +44,7 @@ const ClientDocuments: React.FC = () => {
 
   const handleGoogleDocsSync = async () => {
     if (!googleDocsAccessToken) return;
-    
+
     try {
       const docs = await googleDocsService.getDocuments(googleDocsAccessToken);
       const newDocs = docs.map(doc => ({
@@ -56,12 +56,12 @@ const ClientDocuments: React.FC = () => {
         matterId: undefined,
         content: doc.webViewLink
       }));
-      
+
       // Save to localStorage
       const existingDocs = JSON.parse(localStorage.getItem('documents') || '[]');
       const updatedDocs = [...newDocs, ...existingDocs];
       localStorage.setItem('documents', JSON.stringify(updatedDocs));
-      
+
       setDocuments([...newDocs, ...documents]);
       toast.success('Google Docs synced successfully!');
     } catch (error) {
@@ -82,14 +82,14 @@ const ClientDocuments: React.FC = () => {
         });
         const mattersData = await mattersRes.json();
         setMatters(mattersData);
-        
+
         // Load documents from localStorage (they're stored there in the main app)
         // In production, this would come from the API
         const storedDocs = localStorage.getItem('documents');
         if (storedDocs) {
           const allDocs = JSON.parse(storedDocs);
           const matterIds = mattersData.map((m: any) => m.id);
-          const clientDocs = allDocs.filter((doc: DocumentFile) => 
+          const clientDocs = allDocs.filter((doc: DocumentFile) =>
             doc.matterId && matterIds.includes(doc.matterId)
           );
           setDocuments(clientDocs);
@@ -100,11 +100,11 @@ const ClientDocuments: React.FC = () => {
         setLoading(false);
       }
     };
-    
+
     loadData();
   }, []);
 
-  const filteredDocs = selectedMatter 
+  const filteredDocs = selectedMatter
     ? documents.filter(doc => doc.matterId === selectedMatter)
     : documents;
 
@@ -118,13 +118,13 @@ const ClientDocuments: React.FC = () => {
 
   const handleConfirmUpload = async () => {
     if (!pendingFile) return;
-    
+
     const reader = new FileReader();
     reader.onload = async () => {
       const isTxt = pendingFile.name.endsWith('.txt');
       const isDocx = pendingFile.name.endsWith('.docx');
       const isPdf = pendingFile.name.endsWith('.pdf');
-      
+
       const payload: DocumentFile = {
         id: `d${Date.now()}`,
         name: pendingFile.name,
@@ -134,17 +134,17 @@ const ClientDocuments: React.FC = () => {
         matterId: selectedMatterForUpload || undefined,
         content: reader.result as string
       };
-      
+
       // Save to localStorage (in production, this would go to API)
       const existingDocs = JSON.parse(localStorage.getItem('documents') || '[]');
       existingDocs.push(payload);
       localStorage.setItem('documents', JSON.stringify(existingDocs));
-      
+
       setDocuments([payload, ...documents]);
       setShowUploadModal(false);
       setPendingFile(null);
       setSelectedMatterForUpload('');
-      
+
       // Also send to server if API endpoint exists
       try {
         const token = localStorage.getItem('client_token');
@@ -165,7 +165,7 @@ const ClientDocuments: React.FC = () => {
 
   const handleOpen = async (doc: DocumentFile) => {
     if (!doc.content) {
-      toast.warning('Bu dosya için içerik kaydı yok.');
+      toast.warning('No content available for this file.');
       return;
     }
 
@@ -195,7 +195,7 @@ const ClientDocuments: React.FC = () => {
       }
     } catch (error) {
       console.error('Error opening document:', error);
-      toast.error('Dosya açılırken bir hata oluştu.');
+      toast.error('An error occurred while opening the file.');
       setViewingDoc(null);
     } finally {
       setLoadingContent(false);
@@ -204,7 +204,7 @@ const ClientDocuments: React.FC = () => {
 
   const handleDownload = (doc: DocumentFile) => {
     if (!doc.content) {
-      toast.warning('Bu dosya için içerik kaydı yok.');
+      toast.warning('No content available for this file.');
       return;
     }
     const link = document.createElement('a');
@@ -231,21 +231,21 @@ const ClientDocuments: React.FC = () => {
         <div className="flex gap-2">
           <input type="file" className="hidden" ref={fileInputRef} onChange={handleFileChange} />
           {isGoogleDocsConnected ? (
-            <button 
+            <button
               onClick={handleGoogleDocsSync}
               className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors shadow-sm"
             >
               <FileText className="w-4 h-4" /> Sync Google Docs
             </button>
           ) : (
-            <button 
+            <button
               onClick={handleGoogleDocsConnect}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm"
             >
               <FileText className="w-4 h-4" /> Connect Google Docs
             </button>
           )}
-          <button 
+          <button
             onClick={() => fileInputRef.current?.click()}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm"
           >
@@ -260,9 +260,8 @@ const ClientDocuments: React.FC = () => {
           <h3 className="font-bold text-slate-900 mb-3">Filter by Case</h3>
           <button
             onClick={() => setSelectedMatter(null)}
-            className={`w-full text-left px-3 py-2 rounded-lg mb-2 ${
-              selectedMatter === null ? 'bg-blue-100 text-blue-700 font-medium' : 'hover:bg-gray-100'
-            }`}
+            className={`w-full text-left px-3 py-2 rounded-lg mb-2 ${selectedMatter === null ? 'bg-blue-100 text-blue-700 font-medium' : 'hover:bg-gray-100'
+              }`}
           >
             All Documents
           </button>
@@ -270,9 +269,8 @@ const ClientDocuments: React.FC = () => {
             <button
               key={matter.id}
               onClick={() => setSelectedMatter(matter.id)}
-              className={`w-full text-left px-3 py-2 rounded-lg mb-2 ${
-                selectedMatter === matter.id ? 'bg-blue-100 text-blue-700 font-medium' : 'hover:bg-gray-100'
-              }`}
+              className={`w-full text-left px-3 py-2 rounded-lg mb-2 ${selectedMatter === matter.id ? 'bg-blue-100 text-blue-700 font-medium' : 'hover:bg-gray-100'
+                }`}
             >
               {matter.caseNumber}
             </button>
@@ -291,20 +289,19 @@ const ClientDocuments: React.FC = () => {
               {filteredDocs.map(doc => (
                 <div key={doc.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow">
                   <div className="flex items-start justify-between mb-3">
-                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                      doc.type === 'pdf' ? 'bg-red-50 text-red-500' : 'bg-blue-50 text-blue-600'
-                    }`}>
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${doc.type === 'pdf' ? 'bg-red-50 text-red-500' : 'bg-blue-50 text-blue-600'
+                      }`}>
                       <FileText className="w-6 h-6" />
                     </div>
                     <div className="flex gap-1">
-                      <button 
+                      <button
                         onClick={() => handleOpen(doc)}
                         className="p-1 text-blue-600 hover:text-blue-800"
                         title="View"
                       >
                         <FileText className="w-4 h-4" />
                       </button>
-                      <button 
+                      <button
                         onClick={() => handleDownload(doc)}
                         className="p-1 text-gray-400 hover:text-gray-600"
                         title="Download"
@@ -332,7 +329,7 @@ const ClientDocuments: React.FC = () => {
               <h3 className="font-bold text-lg text-slate-800">Upload Document</h3>
               <p className="text-sm text-gray-500 mt-1">{pendingFile?.name}</p>
             </div>
-            
+
             <div className="px-6 py-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">Select Case (Optional)</label>
               <select
@@ -380,7 +377,7 @@ const ClientDocuments: React.FC = () => {
                 <h3 className="font-bold text-lg text-slate-800">{viewingDoc.name}</h3>
                 <p className="text-xs text-gray-500 mt-1">{viewingDoc.size} • {new Date(viewingDoc.updatedAt).toLocaleDateString()}</p>
               </div>
-              <button 
+              <button
                 onClick={() => { setViewingDoc(null); setDocContent(''); }}
                 className="text-gray-400 hover:text-gray-600"
               >
@@ -394,8 +391,8 @@ const ClientDocuments: React.FC = () => {
                   <div className="text-gray-400">Loading...</div>
                 </div>
               ) : viewingDoc.type === 'pdf' ? (
-                <iframe 
-                  src={docContent} 
+                <iframe
+                  src={docContent}
                   className="w-full h-full border-0"
                   title={viewingDoc.name}
                 />
@@ -404,13 +401,13 @@ const ClientDocuments: React.FC = () => {
                   {docContent}
                 </pre>
               ) : viewingDoc.type === 'docx' ? (
-                <div 
+                <div
                   className="prose max-w-none text-slate-800"
                   dangerouslySetInnerHTML={{ __html: docContent }}
                 />
               ) : (
-                <img 
-                  src={docContent} 
+                <img
+                  src={docContent}
                   alt={viewingDoc.name}
                   className="max-w-full h-auto mx-auto"
                 />

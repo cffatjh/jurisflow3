@@ -106,20 +106,20 @@ const ClientSignatures: React.FC<ClientSignaturesProps> = ({ clientId }) => {
     const getStatusBadge = (status: string) => {
         switch (status) {
             case 'signed':
-                return <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800 flex items-center gap-1"><Check className="w-3 h-3" /> İmzalandı</span>;
+                return <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800 flex items-center gap-1"><Check className="w-3 h-3" /> Signed</span>;
             case 'pending':
-                return <span className="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800 flex items-center gap-1"><Clock className="w-3 h-3" /> Bekliyor</span>;
+                return <span className="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800 flex items-center gap-1"><Clock className="w-3 h-3" /> Pending</span>;
             case 'declined':
-                return <span className="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800 flex items-center gap-1"><X className="w-3 h-3" /> Reddedildi</span>;
+                return <span className="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800 flex items-center gap-1"><X className="w-3 h-3" /> Declined</span>;
             case 'expired':
-                return <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800 flex items-center gap-1"><AlertCircle className="w-3 h-3" /> Süresi Doldu</span>;
+                return <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800 flex items-center gap-1"><AlertCircle className="w-3 h-3" /> Expired</span>;
             default:
                 return null;
         }
     };
 
     const formatDate = (dateStr: string) => {
-        return new Date(dateStr).toLocaleDateString('tr-TR', {
+        return new Date(dateStr).toLocaleDateString('en-US', {
             year: 'numeric',
             month: 'long',
             day: 'numeric',
@@ -141,8 +141,8 @@ const ClientSignatures: React.FC<ClientSignaturesProps> = ({ clientId }) => {
             <div className="max-w-4xl mx-auto">
                 {/* Header */}
                 <div className="mb-6">
-                    <h2 className="text-2xl font-bold text-gray-900">E-İmza Taleplerim</h2>
-                    <p className="text-gray-600 mt-1">Belgelerinizi dijital olarak imzalayın</p>
+                    <h2 className="text-2xl font-bold text-gray-900">My E-Signature Requests</h2>
+                    <p className="text-gray-600 mt-1">Sign your documents digitally</p>
                 </div>
 
                 {/* Signing Modal */}
@@ -150,14 +150,14 @@ const ClientSignatures: React.FC<ClientSignaturesProps> = ({ clientId }) => {
                     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                         <div className="bg-white rounded-xl shadow-xl p-6 max-w-lg w-full mx-4">
                             <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-lg font-semibold">Belgeyi İmzala</h3>
+                                <h3 className="text-lg font-semibold">Sign Document</h3>
                                 <button onClick={() => setSigningRequest(null)} className="text-gray-400 hover:text-gray-600">
                                     <X className="w-5 h-5" />
                                 </button>
                             </div>
 
                             <p className="text-gray-600 mb-4">
-                                Aşağıdaki alana imzanızı çizin. Bu imza yasal olarak geçerli kabul edilecektir.
+                                Draw your signature in the area below. This signature will be considered legally valid.
                             </p>
 
                             <div className="border-2 border-dashed border-gray-300 rounded-lg mb-4">
@@ -178,21 +178,21 @@ const ClientSignatures: React.FC<ClientSignaturesProps> = ({ clientId }) => {
                                     onClick={clearSignature}
                                     className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
                                 >
-                                    Temizle
+                                    Clear
                                 </button>
                                 <div className="flex gap-3">
                                     <button
                                         onClick={() => setSigningRequest(null)}
                                         className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
                                     >
-                                        İptal
+                                        Cancel
                                     </button>
                                     <button
                                         onClick={submitSignature}
                                         className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
                                     >
                                         <Check className="w-4 h-4" />
-                                        İmzala
+                                        Sign
                                     </button>
                                 </div>
                             </div>
@@ -204,8 +204,8 @@ const ClientSignatures: React.FC<ClientSignaturesProps> = ({ clientId }) => {
                 {signatureRequests.length === 0 ? (
                     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
                         <Edit3 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                        <h3 className="text-lg font-medium text-gray-900 mb-2">İmza talebiniz yok</h3>
-                        <p className="text-gray-500">Avukatınız sizden belge imzalamanızı istediğinde burada görünecektir.</p>
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">No signature requests</h3>
+                        <p className="text-gray-500">When your attorney requests a document signature, it will appear here.</p>
                     </div>
                 ) : (
                     <div className="space-y-4">
@@ -237,14 +237,14 @@ const ClientSignatures: React.FC<ClientSignaturesProps> = ({ clientId }) => {
                                             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                                         >
                                             <Edit3 className="w-4 h-4" />
-                                            İmzala
+                                            Sign
                                         </button>
                                     )}
 
                                     {request.status === 'signed' && request.signatureData && (
                                         <img
                                             src={request.signatureData}
-                                            alt="İmza"
+                                            alt="Signature"
                                             className="h-12 border border-gray-200 rounded"
                                         />
                                     )}
