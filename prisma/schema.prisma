@@ -19,6 +19,7 @@ generator client {
 // ------------------------------
 model Client {
   id          String   @id @default(cuid())
+  clientNumber String?  @unique  // CLT-0001, CLT-0002, etc. - for easy client identification
   name        String
   email       String   @unique
   phone       String?

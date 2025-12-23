@@ -129,6 +129,7 @@ export interface Employee {
 
 export interface Client {
   id: string;
+  clientNumber?: string;  // CLT-0001, CLT-0002, etc.
   name: string;
   email: string;
   phone?: string;

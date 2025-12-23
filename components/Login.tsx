@@ -176,7 +176,7 @@ const Login = () => {
                 href="/forgot-password"
                 className="text-xs text-gray-500 hover:text-slate-800 transition-colors"
               >
-                Şifremi Unuttum
+                Forgot Password?
               </a>
             </div>
 

@@ -1218,8 +1218,25 @@ app.get('/api/clients', async (req, res) => {
 app.post('/api/clients', async (req, res) => {
   try {
     const data = req.body;
+
+    // Generate client number (CLT-0001 format)
+    const lastClient = await prisma.client.findFirst({
+      where: { clientNumber: { not: null } },
+      orderBy: { clientNumber: 'desc' }
+    });
+
+    let nextNumber = 1;
+    if (lastClient?.clientNumber) {
+      const match = lastClient.clientNumber.match(/CLT-(\d+)/);
+      if (match) {
+        nextNumber = parseInt(match[1], 10) + 1;
+      }
+    }
+    const clientNumber = `CLT-${nextNumber.toString().padStart(4, '0')}`;
+
     const created = await prisma.client.create({
       data: {
+        clientNumber,
         name: data.name,
         email: data.email,
         phone: data.phone ?? null,

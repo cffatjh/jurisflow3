@@ -533,7 +533,7 @@ const Matters: React.FC = () => {
                     <optgroup label={t('clients')}>
                       {clients.map((c) => (
                         <option key={`client-${c.id}`} value={`client:${c.id}`}>
-                          {c.name} {c.company ? `(${c.company})` : ''}
+                          {c.clientNumber ? `[${c.clientNumber}] ` : ''}{c.name} {c.company ? `(${c.company})` : ''}
                         </option>
                       ))}
                     </optgroup>
