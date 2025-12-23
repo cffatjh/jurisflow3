@@ -108,7 +108,10 @@ const ClientPortal: React.FC = () => {
 
         <div className="p-4 border-t border-gray-200">
           <button
-            onClick={logout}
+            onClick={() => {
+              logout();
+              window.location.href = '/';
+            }}
             className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm text-red-600 hover:bg-red-50 transition-colors"
           >
             <X className="w-5 h-5" />

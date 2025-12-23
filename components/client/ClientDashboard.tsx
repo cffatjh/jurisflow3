@@ -64,10 +64,10 @@ const ClientDashboard: React.FC = () => {
 
   const activeMatters = matters.filter(m => m.status === 'Open');
   const totalInvoices = invoices.length;
-  const unpaidInvoices = invoices.filter(i => i.status === 'Overdue' || i.status === 'Sent').length;
+  const unpaidInvoices = invoices.filter((i: any) => i.status === 'Overdue' || i.status === 'Sent' || i.status === 'OVERDUE' || i.status === 'SENT').length;
   const totalAmount = invoices.reduce((sum, inv) => sum + inv.amount, 0);
   const unpaidAmount = invoices
-    .filter(i => i.status === 'Overdue' || i.status === 'Sent')
+    .filter((i: any) => i.status === 'Overdue' || i.status === 'Sent' || i.status === 'OVERDUE' || i.status === 'SENT')
     .reduce((sum, inv) => sum + inv.amount, 0);
 
   const unreadMessages = messages.filter((m: any) => !m.read).length;
@@ -183,9 +183,9 @@ const ClientDashboard: React.FC = () => {
                 </div>
                 <div className="text-right">
                   <div className="font-bold text-slate-900">${invoice.amount.toLocaleString()}</div>
-                  <span className={`px-3 py-1 rounded-full text-xs font-bold ${invoice.status === 'Paid' ? 'bg-green-100 text-green-700' :
-                      invoice.status === 'Overdue' ? 'bg-red-100 text-red-700' :
-                        'bg-yellow-100 text-yellow-700'
+                  <span className={`px-3 py-1 rounded-full text-xs font-bold ${(invoice as any).status === 'Paid' || (invoice as any).status === 'PAID' ? 'bg-green-100 text-green-700' :
+                    (invoice as any).status === 'Overdue' || (invoice as any).status === 'OVERDUE' ? 'bg-red-100 text-red-700' :
+                      'bg-yellow-100 text-yellow-700'
                     }`}>
                     {invoice.status}
                   </span>
