@@ -56,21 +56,38 @@ const CRM: React.FC = () => {
       setNewLeadVal('');
    };
 
-   const performConflictCheck = (e: React.FormEvent) => {
-      e.preventDefault();
-      if (!conflictQuery) return;
+   const [isSearching, setIsSearching] = useState(false);
 
-      const q = conflictQuery.toLowerCase();
-      // Search across Clients and Leads by name AND client number
-      const matches = [
-         ...clients.filter(c =>
-            c.name.toLowerCase().includes(q) ||
-            c.clientNumber?.toLowerCase().includes(q) ||
-            c.email?.toLowerCase().includes(q)
-         ).map(c => ({ ...c, type: 'Client' })),
-         ...leads.filter(l => l.name.toLowerCase().includes(q)).map(l => ({ ...l, type: 'Lead' })),
-      ];
-      setConflictResults(matches);
+   const performConflictCheck = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!conflictQuery || conflictQuery.trim().length < 2) {
+         alert('Please enter at least 2 characters');
+         return;
+      }
+
+      setIsSearching(true);
+      setConflictResults(null);
+
+      try {
+         const token = localStorage.getItem('auth_token');
+         const res = await fetch(`/api/crm/conflict-check?q=${encodeURIComponent(conflictQuery)}`, {
+            headers: {
+               'Authorization': `Bearer ${token}`
+            }
+         });
+
+         if (!res.ok) {
+            throw new Error('Search failed');
+         }
+
+         const data = await res.json();
+         setConflictResults(data);
+      } catch (err) {
+         console.error(err);
+         alert('Failed to perform conflict check');
+      } finally {
+         setIsSearching(false);
+      }
    };
 
    return (
@@ -259,10 +276,19 @@ const CRM: React.FC = () => {
                            value={conflictQuery}
                            onChange={e => setConflictQuery(e.target.value)}
                         />
-                        <button type="submit" className="bg-slate-800 text-white px-4 py-2 rounded-lg text-sm font-bold">Search</button>
+                        <button type="submit" disabled={isSearching} className="bg-slate-800 text-white px-4 py-2 rounded-lg text-sm font-bold disabled:opacity-50">
+                           {isSearching ? 'Searching...' : 'Search'}
+                        </button>
                      </form>
 
-                     {conflictResults && (
+                     {isSearching && (
+                        <div className="text-center py-8">
+                           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-800 mx-auto"></div>
+                           <p className="mt-2 text-sm text-gray-500">Checking database...</p>
+                        </div>
+                     )}
+
+                     {!isSearching && conflictResults && (
                         <div className="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
                            {conflictResults.length === 0 ? (
                               <div className="p-8 text-center">

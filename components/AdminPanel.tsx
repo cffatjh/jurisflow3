@@ -93,6 +93,7 @@ const AdminPanel: React.FC = () => {
       setAccessDenied(true);
       return;
     }
+    setAccessDenied(false); // Reset access denied state if user is admin
     loadUsers();
     loadClients();
   }, [user]);

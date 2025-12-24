@@ -20,6 +20,11 @@ import { sendEmail, emailTemplates } from './services/emailService';
 import { generateInvoicePDF } from './services/pdfService';
 import { uploadSingle, uploadMultiple } from './middleware/fileUpload';
 import trustRoutes from './routes/trustRoutes';
+import crmRoutes from './routes/crmRoutes';
+import clientRoutes from './routes/clientRoutes';
+import matterRoutes from './routes/matterRoutes';
+import taskRoutes from './routes/taskRoutes';
+import { verifyToken, verifyAdmin } from './middleware/auth';
 
 declare global {
   namespace Express {
@@ -31,37 +36,7 @@ declare global {
   }
 }
 
-const verifyToken = (req: any, res: any, next: any) => {
-  // Whitelist public endpoints
-  // Note: When mounted at '/api', req.path is relative (e.g., '/health' not '/api/health')
-  if (
-    req.path === '/login' ||
-    req.path === '/client/login' ||
-    req.path === '/health' ||
-    req.path.startsWith('/auth/') ||
-    req.path.startsWith('/client/') ||
-    req.path.startsWith('/public/')
-  ) {
-    return next();
-  }
-
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-
-  if (!token) {
-    // Allow public access to some GETs if needed, or fail. 
-    // For now, let's enforce auth for API routes except whitelist.
-    // But to avoid breaking existing public pages if any, be careful.
-    // Assuming app is fully protected.
-    return res.status(401).json({ message: 'No token provided' });
-  }
-
-  jwt.verify(token, process.env.JWT_SECRET || 'dev-secret-key', (err: any, user: any) => {
-    if (err) return res.status(403).json({ message: 'Invalid token' });
-    req.user = user;
-    next();
-  });
-};
+// verifyToken imported from middleware/auth
 
 const app = express();
 const prisma = new PrismaClient();
@@ -197,15 +172,23 @@ const authLimiter = rateLimit({
 // Apply rate limiting (skip for login endpoints - they have their own limiter)
 app.use('/api/', (req: any, res: any, next: any) => {
   // Skip rate limiting for login endpoints (they have authLimiter)
-  if (req.path === '/api/login' || req.path === '/api/client/login') {
+  if (req.path === '/login' || req.path === '/client/login') { // Note: req.path here is relative to /api
     return next();
   }
+
+  // Use auth limiter for normal API calls if strictly needed, or use the general limiter
+  // For now, general limiter is 'limiter', auth is 'authLimiter'
   rateLimitLogger(req, res, () => {
     limiter(req, res, next);
   });
 });
 
 app.use('/api/login', authLimiter);
+app.use('/api/trust', trustRoutes);
+app.use('/api/crm', crmRoutes);
+app.use('/api/clients', clientRoutes);
+app.use('/api/matters', matterRoutes);
+app.use('/api', taskRoutes); // Mounting at /api because it contains both /tasks and /task-templates logic defined as /tasks and /task-templates
 app.use('/api/client/login', authLimiter);
 
 app.use(express.json({ limit: '10mb' }));
@@ -789,358 +772,10 @@ app.post('/api/client/login', asyncHandler(async (req: any, res: any) => {
 }));
 
 // ===================== MATTERS =====================
-app.get('/api/matters', async (req, res) => {
-  try {
-    const matters = await prisma.matter.findMany({
-      include: {
-        client: true,
-        timeEntries: true,
-        expenses: true,
-        tasks: true,
-        events: true,
-      },
-    });
-    res.json(matters);
-  } catch (err) {
-    console.error('Error fetching matters:', err);
-    res.status(500).json({ message: 'Failed to load matters' });
-  }
-});
+// Moved to routes/matterRoutes.ts
 
-app.post('/api/matters', checkPermission('matter.create'), async (req, res) => {
-  try {
-    const data = req.body; // Partial<Matter> geliyor
-
-    let clientId = data.clientId as string | undefined;
-
-    // If matter is opened from a Lead, convert Lead -> Client first
-    if (!clientId && data.sourceLeadId) {
-      const lead = await prisma.lead.findUnique({ where: { id: data.sourceLeadId } });
-      if (!lead) {
-        return res.status(400).json({ message: 'Lead not found for conversion' });
-      }
-
-      const newClient = await prisma.client.create({
-        data: {
-          name: lead.name,
-          email: data.clientEmail ?? '',
-          phone: data.clientPhone ?? null,
-          mobile: data.clientMobile ?? null,
-          company: data.clientCompany ?? null,
-          type: data.clientType ?? 'Individual',
-          status: 'Active',
-          address: data.clientAddress ?? null,
-          city: data.clientCity ?? null,
-          state: data.clientState ?? null,
-          zipCode: data.clientZipCode ?? null,
-          country: data.clientCountry ?? null,
-          taxId: data.clientTaxId ?? null,
-          notes: data.clientNotes ?? null,
-        },
-      });
-
-      // Remove lead after conversion
-      await prisma.lead.delete({ where: { id: lead.id } });
-      clientId = newClient.id;
-    }
-
-    if (!clientId) {
-      return res.status(400).json({ message: 'clientId is required to create a matter' });
-    }
-
-    const created = await prisma.matter.create({
-      data: {
-        caseNumber: data.caseNumber,
-        name: data.name,
-        practiceArea: data.practiceArea,
-        status: data.status,
-        feeStructure: data.feeStructure,
-        openDate: data.openDate ? new Date(data.openDate) : undefined,
-        responsibleAttorney: data.responsibleAttorney,
-        billableRate: data.billableRate,
-        trustBalance: data.trustBalance ?? 0,
-        clientId,
-      },
-      include: { client: true },
-    });
-    res.status(201).json(created);
-  } catch (err) {
-    console.error('Error creating matter:', err);
-    res.status(500).json({ message: 'Failed to create matter' });
-  }
-});
-
-app.put('/api/matters/:id', checkPermission('matter.edit'), async (req, res) => {
-  try {
-    const id = req.params.id;
-    const data = req.body;
-    const updated = await prisma.matter.update({
-      where: { id },
-      data: {
-        name: data.name,
-        caseNumber: data.caseNumber,
-        practiceArea: data.practiceArea,
-        status: data.status,
-        feeStructure: data.feeStructure,
-        billableRate: data.billableRate,
-        trustBalance: data.trustBalance,
-      },
-      include: { client: true },
-    });
-    res.json(updated);
-  } catch (err) {
-    console.error('Error updating matter:', err);
-    res.status(500).json({ message: 'Failed to update matter' });
-  }
-});
-
-app.delete('/api/matters/:id', checkPermission('matter.delete'), async (req, res) => {
-  try {
-    const id = req.params.id;
-    await prisma.matter.delete({ where: { id } });
-    res.json({ success: true });
-  } catch (err) {
-    console.error('Error deleting matter:', err);
-    res.status(500).json({ message: 'Failed to delete matter' });
-  }
-});
-
-// ===================== TASKS =====================
-app.get('/api/tasks', async (req, res) => {
-  try {
-    const { matterId } = req.query;
-    const user = req.user;
-
-    const whereClause: any = matterId ? { matterId: matterId as string } : {};
-
-    // Data Isolation: If not admin, only show own tasks
-    if (user && user.role !== 'Admin' && user.id) {
-      whereClause.userId = user.id;
-    }
-
-    const tasks = await prisma.task.findMany({
-      where: whereClause,
-      orderBy: { createdAt: 'desc' },
-    });
-    res.json(tasks);
-  } catch (err) {
-    console.error('Error fetching tasks:', err);
-    res.status(500).json({ message: 'Failed to load tasks' });
-  }
-});
-
-app.post('/api/tasks', async (req, res) => {
-  try {
-    const data = req.body; // Partial<Task>
-    const created = await prisma.task.create({
-      data: {
-        title: data.title,
-        description: data.description ?? null,
-        dueDate: data.dueDate ? new Date(data.dueDate) : null,
-        reminderAt: data.reminderAt ? new Date(data.reminderAt) : null,
-        priority: data.priority,
-        status: data.status,
-        matterId: data.matterId ?? null,
-        assignedTo: data.assignedTo ?? null,
-        templateId: data.templateId ?? null,
-        // @ts-ignore
-        userId: req.user?.id || null, // Set owner
-      },
-    });
-    res.status(201).json(created);
-  } catch (err) {
-    console.error('Error creating task:', err);
-    res.status(500).json({ message: 'Failed to create task' });
-  }
-});
-
-app.put('/api/tasks/:id', async (req, res) => {
-  try {
-    const id = req.params.id;
-    const data = req.body; // Partial<Task>
-
-    const updated = await prisma.task.update({
-      where: { id },
-      data: {
-        title: data.title ?? undefined,
-        description: data.description ?? undefined,
-        dueDate: data.dueDate ? new Date(data.dueDate) : data.dueDate === null ? null : undefined,
-        reminderAt: data.reminderAt ? new Date(data.reminderAt) : data.reminderAt === null ? null : undefined,
-        priority: data.priority ?? undefined,
-        status: data.status ?? undefined,
-        matterId: data.matterId === null ? null : data.matterId ?? undefined,
-        assignedTo: data.assignedTo === null ? null : data.assignedTo ?? undefined,
-        templateId: data.templateId === null ? null : data.templateId ?? undefined,
-        completedAt: data.completedAt ? new Date(data.completedAt) : data.completedAt === null ? null : undefined,
-      },
-    });
-    res.json(updated);
-  } catch (err) {
-    console.error('Error updating task:', err);
-    res.status(500).json({ message: 'Failed to update task' });
-  }
-});
-
-app.put('/api/tasks/:id/status', async (req, res) => {
-  try {
-    const id = req.params.id;
-    const { status } = req.body;
-    const updated = await prisma.task.update({
-      where: { id },
-      data: {
-        status,
-        completedAt: status === 'Done' ? new Date() : null,
-      },
-    });
-    res.json(updated);
-  } catch (err) {
-    console.error('Error updating task status:', err);
-    res.status(500).json({ message: 'Failed to update task status' });
-  }
-});
-
-// Delete task
-app.delete('/api/tasks/:id', async (req, res) => {
-  try {
-    const id = req.params.id;
-    await prisma.task.delete({ where: { id } });
-    res.json({ success: true });
-  } catch (err) {
-    console.error('Error deleting task:', err);
-    res.status(500).json({ message: 'Failed to delete task' });
-  }
-});
-
-// ===================== TASK TEMPLATES =====================
-app.get('/api/task-templates', async (req, res) => {
-  try {
-    const count = await prisma.taskTemplate.count();
-    if (count === 0) {
-      // Seed a couple of useful templates for first-run UX
-      await prisma.taskTemplate.createMany({
-        data: [
-          {
-            name: 'İcra Takibi (Basit)',
-            category: 'İcra',
-            description: 'İcra dosyası açılışından tebligat ve haciz aşamasına kadar temel görev listesi.',
-            definition: JSON.stringify({
-              defaults: { priority: 'Medium', status: 'To Do' },
-              tasks: [
-                { title: 'Dosya açılış evraklarını topla', offsetDays: 0, priority: 'High' },
-                { title: 'Borçlu adres/kimlik doğrulama', offsetDays: 0, priority: 'Medium' },
-                { title: 'Takip talebi hazırlama', offsetDays: 1, priority: 'High' },
-                { title: 'Ödeme emri tebligat takibi', offsetDays: 3, priority: 'Medium' },
-                { title: 'İtiraz kontrolü', offsetDays: 10, priority: 'High' },
-                { title: 'Haciz talebi hazırlığı', offsetDays: 14, priority: 'Medium' },
-              ],
-            }),
-          },
-          {
-            name: 'Dava Dosyası Açılış',
-            category: 'Genel',
-            description: 'Yeni matter açıldığında yapılacak temel checklist.',
-            definition: JSON.stringify({
-              defaults: { priority: 'Medium', status: 'To Do' },
-              tasks: [
-                { title: 'Vekalet / sözleşme kontrolü', offsetDays: 0, priority: 'High' },
-                { title: 'Müvekkil evraklarını yükle ve etiketle', offsetDays: 0, priority: 'Medium' },
-                { title: 'İlk strateji notu / yol haritası', offsetDays: 1, priority: 'Medium' },
-                { title: 'İlk duruşma/son tarihleri ajandaya ekle', offsetDays: 1, priority: 'High' },
-              ],
-            }),
-          },
-        ],
-      });
-    }
-
-    const templates = await prisma.taskTemplate.findMany({
-      where: { isActive: true },
-      orderBy: { updatedAt: 'desc' },
-    });
-    res.json(templates);
-  } catch (err) {
-    console.error('Error fetching task templates:', err);
-    res.status(500).json({ message: 'Failed to load task templates' });
-  }
-});
-
-app.post('/api/task-templates', async (req, res) => {
-  try {
-    const { name, category, description, definition, isActive } = req.body || {};
-    if (!name || !definition) {
-      return res.status(400).json({ message: 'name and definition are required' });
-    }
-    const created = await prisma.taskTemplate.create({
-      data: {
-        name,
-        category: category ?? null,
-        description: description ?? null,
-        definition: typeof definition === 'string' ? definition : JSON.stringify(definition),
-        isActive: isActive ?? true,
-      },
-    });
-    res.status(201).json(created);
-  } catch (err) {
-    console.error('Error creating task template:', err);
-    res.status(500).json({ message: 'Failed to create task template' });
-  }
-});
-
-app.post('/api/tasks/from-template', async (req, res) => {
-  try {
-    const { templateId, matterId, assignedTo, baseDate } = req.body || {};
-    if (!templateId) return res.status(400).json({ message: 'templateId is required' });
-
-    const template = await prisma.taskTemplate.findUnique({ where: { id: templateId } });
-    if (!template) return res.status(404).json({ message: 'Template not found' });
-
-    let parsed: any;
-    try {
-      parsed = JSON.parse(template.definition);
-    } catch {
-      return res.status(400).json({ message: 'Template definition is invalid JSON' });
-    }
-
-    const tasks: Array<any> = Array.isArray(parsed?.tasks) ? parsed.tasks : [];
-    const defaults = parsed?.defaults || {};
-    const base = baseDate ? new Date(baseDate) : new Date();
-
-    const created = await prisma.$transaction(
-      tasks.map((t: any) => {
-        const offsetDays = Number(t.offsetDays || 0);
-        const due = new Date(base.getTime());
-        due.setDate(due.getDate() + offsetDays);
-
-        const reminderAt = t.reminderOffsetDays !== undefined
-          ? (() => {
-            const r = new Date(base.getTime());
-            r.setDate(r.getDate() + Number(t.reminderOffsetDays || 0));
-            return r;
-          })()
-          : null;
-
-        return prisma.task.create({
-          data: {
-            title: t.title,
-            description: t.description ?? null,
-            dueDate: due,
-            reminderAt,
-            priority: t.priority || defaults.priority || 'Medium',
-            status: t.status || defaults.status || 'To Do',
-            matterId: matterId ?? null,
-            assignedTo: assignedTo ?? null,
-            templateId: templateId,
-          },
-        });
-      })
-    );
-
-    res.status(201).json({ template, tasks: created });
-  } catch (err) {
-    console.error('Error creating tasks from template:', err);
-    res.status(500).json({ message: 'Failed to create tasks from template' });
-  }
-});
+// ===================== TASKS & TEMPLATES =====================
+// Moved to routes/taskRoutes.ts
 
 // ===================== TIME ENTRIES =====================
 app.get('/api/time-entries', async (req, res) => {
@@ -1205,60 +840,7 @@ app.post('/api/billing/mark-billed', async (req, res) => {
 });
 
 // ===================== CLIENTS & LEADS =====================
-app.get('/api/clients', async (req, res) => {
-  try {
-    const clients = await prisma.client.findMany();
-    res.json(clients);
-  } catch (err) {
-    console.error('Error fetching clients:', err);
-    res.status(500).json({ message: 'Failed to load clients' });
-  }
-});
-
-app.post('/api/clients', async (req, res) => {
-  try {
-    const data = req.body;
-
-    // Generate client number (CLT-0001 format)
-    const lastClient = await prisma.client.findFirst({
-      where: { clientNumber: { not: null } },
-      orderBy: { clientNumber: 'desc' }
-    });
-
-    let nextNumber = 1;
-    if (lastClient?.clientNumber) {
-      const match = lastClient.clientNumber.match(/CLT-(\d+)/);
-      if (match) {
-        nextNumber = parseInt(match[1], 10) + 1;
-      }
-    }
-    const clientNumber = `CLT-${nextNumber.toString().padStart(4, '0')}`;
-
-    const created = await prisma.client.create({
-      data: {
-        clientNumber,
-        name: data.name,
-        email: data.email,
-        phone: data.phone ?? null,
-        mobile: data.mobile ?? null,
-        company: data.company ?? null,
-        type: data.type ?? 'Individual',
-        status: data.status ?? 'Active',
-        address: data.address ?? null,
-        city: data.city ?? null,
-        state: data.state ?? null,
-        zipCode: data.zipCode ?? null,
-        country: data.country ?? null,
-        taxId: data.taxId ?? null,
-        notes: data.notes ?? null,
-      },
-    });
-    res.status(201).json(created);
-  } catch (err) {
-    console.error('Error creating client:', err);
-    res.status(500).json({ message: 'Failed to create client' });
-  }
-});
+// Clients moved to routes/clientRoutes.ts
 
 app.get('/api/leads', async (req, res) => {
   try {
@@ -2063,35 +1645,7 @@ app.put('/api/user/profile', async (req, res) => {
 // ===================== ADMIN MIDDLEWARE =====================
 // Sadece Admin rolündeki kullanıcılar admin panel API'lerine erişebilir
 // Partner ve Associate avukatlar erişemez
-const verifyAdmin = async (req: any, res: any, next: any) => {
-  try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    if (!token) {
-      return res.status(401).json({ message: 'Unauthorized - Token required' });
-    }
-
-    const decoded = jwt.verify(token, JWT_SECRET) as any;
-    const user = await prisma.user.findUnique({ where: { id: decoded.sub } });
-
-    if (!user) {
-      return res.status(401).json({ message: 'User not found' });
-    }
-
-    // Sadece Admin rolündeki kullanıcılar erişebilir
-    // Partner ve Associate avukatlar erişemez
-    if (user.role !== 'Admin') {
-      return res.status(403).json({
-        message: 'Admin access required - Only users with Admin role can access this resource',
-        userRole: user.role
-      });
-    }
-
-    req.adminId = decoded.sub;
-    next();
-  } catch (err) {
-    res.status(401).json({ message: 'Invalid token' });
-  }
-};
+// verifyAdmin imported from middleware/auth
 
 // ===================== ADMIN: USER MANAGEMENT =====================
 // Get all users
@@ -2337,135 +1891,7 @@ app.delete('/api/admin/users/:id', verifyAdmin, async (req, res) => {
 });
 
 // ===================== ADMIN: CLIENT MANAGEMENT =====================
-// Get all clients
-app.get('/api/admin/clients', verifyAdmin, async (req, res) => {
-  try {
-    const clients = await prisma.client.findMany({
-      orderBy: { createdAt: 'desc' }
-    });
-    res.json(clients);
-  } catch (err) {
-    console.error('Error fetching clients:', err);
-    res.status(500).json({ message: 'Failed to load clients' });
-  }
-});
-
-// Update client (including password and portal settings)
-app.put('/api/admin/clients/:id', verifyAdmin, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const {
-      name, email, phone, mobile, company, type, status,
-      address, city, state, zipCode, country, taxId, notes,
-      password, portalEnabled
-    } = req.body;
-
-    const updateData: any = {
-      ...(name && { name }),
-      ...(email && { email }),
-      ...(phone !== undefined && { phone }),
-      ...(mobile !== undefined && { mobile }),
-      ...(company !== undefined && { company }),
-      ...(type && { type }),
-      ...(status && { status }),
-      ...(address !== undefined && { address }),
-      ...(city !== undefined && { city }),
-      ...(state !== undefined && { state }),
-      ...(zipCode !== undefined && { zipCode }),
-      ...(country !== undefined && { country }),
-      ...(taxId !== undefined && { taxId }),
-      ...(notes !== undefined && { notes }),
-      ...(portalEnabled !== undefined && { portalEnabled })
-    };
-
-    if (password) {
-      if (password.length < 6) {
-        return res.status(400).json({ message: 'Password must be at least 6 characters' });
-      }
-      updateData.passwordHash = await bcrypt.hash(password, 10);
-    }
-
-    // Get old client data for audit log
-    const oldClient = await prisma.client.findUnique({ where: { id } });
-
-    const client = await prisma.client.update({
-      where: { id },
-      data: updateData
-    });
-
-    // Get admin info for audit log
-    const admin = await prisma.user.findUnique({ where: { id: req.adminId } });
-
-    // Log client update
-    await createAuditLog({
-      userId: req.adminId,
-      userEmail: admin?.email || undefined,
-      action: 'UPDATE',
-      entityType: 'CLIENT',
-      entityId: id,
-      oldValues: oldClient ? {
-        email: oldClient.email,
-        name: oldClient.name,
-        status: oldClient.status,
-        portalEnabled: oldClient.portalEnabled,
-      } : null,
-      newValues: {
-        email: client.email,
-        name: client.name,
-        status: client.status,
-        portalEnabled: client.portalEnabled,
-      },
-      details: `Admin updated client: ${client.email}${password ? ' (password changed)' : ''}${portalEnabled !== undefined ? ` (portal ${portalEnabled ? 'enabled' : 'disabled'})` : ''}`,
-      ipAddress: req.ip || req.socket.remoteAddress || undefined,
-      userAgent: req.get('user-agent') || undefined,
-    });
-
-    res.json(client);
-  } catch (err: any) {
-    console.error('Error updating client:', err);
-    if (err.code === 'P2002') {
-      return res.status(400).json({ message: 'Email already exists' });
-    }
-    res.status(500).json({ message: 'Failed to update client' });
-  }
-});
-
-// Delete client
-app.delete('/api/admin/clients/:id', verifyAdmin, async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    // Get client data before deletion for audit log
-    const deletedClient = await prisma.client.findUnique({ where: { id } });
-
-    await prisma.client.delete({ where: { id } });
-
-    // Get admin info for audit log
-    const admin = await prisma.user.findUnique({ where: { id: req.adminId } });
-
-    // Log client deletion
-    await createAuditLog({
-      userId: req.adminId,
-      userEmail: admin?.email || undefined,
-      action: 'DELETE',
-      entityType: 'CLIENT',
-      entityId: id,
-      oldValues: deletedClient ? {
-        email: deletedClient.email,
-        name: deletedClient.name,
-        status: deletedClient.status,
-      } : null,
-      details: `Admin deleted client: ${deletedClient?.email || id}`,
-      ipAddress: req.ip || req.socket.remoteAddress || undefined,
-      userAgent: req.get('user-agent') || undefined,
-    });
-
-    res.json({ success: true });
-  } catch (err) {
-    console.error('Error deleting client:', err);
-    res.status(500).json({ message: 'Failed to delete client' });
-  }
-});
+// Moved to routes/clientRoutes.ts
 
 // ===================== ADMIN: AUDIT LOGS =====================
 // List audit logs with pagination & filters (Admin only)
@@ -3194,24 +2620,195 @@ app.post('/api/client/documents/upload', verifyClientToken, uploadSingle, asyncH
 
 // ===================== DOCUMENT UPLOAD (Attorney) =====================
 // Upload single document
+// ===================== ADMIN: USERS (ATTORNEYS) =====================
+app.get('/api/admin/users', verifyAdmin, asyncHandler(async (req: any, res: any) => {
+  const users = await prisma.user.findMany({
+    orderBy: { name: 'asc' },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+      phone: true,
+      mobile: true,
+      address: true,
+      city: true,
+      state: true,
+      zipCode: true,
+      country: true,
+      barNumber: true,
+      bio: true
+    }
+  });
+  res.json(users);
+}));
+
+app.post('/api/admin/users', verifyAdmin, asyncHandler(async (req: any, res: any) => {
+  const { email, name, password, role, phone, mobile } = req.body;
+
+  const existing = await prisma.user.findUnique({ where: { email } });
+  if (existing) {
+    return res.status(400).json({ message: 'Email already exists' });
+  }
+
+  const passwordHash = await bcrypt.hash(password, 10);
+
+  const user = await prisma.user.create({
+    data: {
+      email,
+      name,
+      passwordHash,
+      role: role || 'Associate',
+      phone,
+      mobile
+    }
+  });
+
+  const { passwordHash: _, ...userWithoutPassword } = user;
+  res.status(201).json(userWithoutPassword);
+}));
+
+app.put('/api/admin/users/:id', verifyAdmin, asyncHandler(async (req: any, res: any) => {
+  const { name, role, phone, mobile, address, city, state, zipCode, country, barNumber, bio } = req.body;
+
+  const user = await prisma.user.update({
+    where: { id: req.params.id },
+    data: {
+      name,
+      role,
+      phone,
+      mobile,
+      address,
+      city,
+      state,
+      zipCode,
+      country,
+      barNumber,
+      bio
+    }
+  });
+
+  const { passwordHash: _, ...userWithoutPassword } = user;
+  res.json(userWithoutPassword);
+}));
+
+app.delete('/api/admin/users/:id', verifyAdmin, asyncHandler(async (req: any, res: any) => {
+  if (req.params.id === req.user.id) {
+    return res.status(400).json({ message: 'Cannot delete your own account' });
+  }
+
+  await prisma.user.delete({ where: { id: req.params.id } });
+  res.json({ message: 'User deleted' });
+}));
+
+// ===================== ADMIN: CLIENTS =====================
+app.get('/api/admin/clients', verifyAdmin, asyncHandler(async (req: any, res: any) => {
+  const clients = await prisma.client.findMany({
+    orderBy: { name: 'asc' }
+  });
+  res.json(clients);
+}));
+
+app.put('/api/admin/clients/:id', verifyAdmin, asyncHandler(async (req: any, res: any) => {
+  const { name, email, phone, mobile, company, type, status, address, city, state, zipCode, country, taxId, notes, password, portalEnabled } = req.body;
+
+  const data: any = {
+    name, email, phone, mobile, company, type, status,
+    address, city, state, zipCode, country, taxId, notes, portalEnabled
+  };
+
+  if (password) {
+    data.passwordHash = await bcrypt.hash(password, 10);
+  }
+
+  const client = await prisma.client.update({
+    where: { id: req.params.id },
+    data
+  });
+
+  res.json(client);
+}));
+
+app.delete('/api/admin/clients/:id', verifyAdmin, asyncHandler(async (req: any, res: any) => {
+  await prisma.client.delete({ where: { id: req.params.id } });
+  res.json({ message: 'Client deleted' });
+}));
+
+// ===================== ADMIN: AUDIT LOGS =====================
+app.get('/api/admin/audit-logs', verifyAdmin, asyncHandler(async (req: any, res: any) => {
+  const { page = 1, limit = 50, action, entityType, entityId, userId, clientId, email, q, from, to } = req.query;
+
+  const where: any = {};
+
+  if (action) where.action = action;
+  if (entityType) where.entityType = entityType;
+  if (entityId) where.entityId = entityId;
+  if (userId) where.userId = userId;
+  if (clientId) where.clientId = clientId;
+  if (email) {
+    where.OR = [
+      { userEmail: { contains: email as string } },
+      { clientEmail: { contains: email as string } }
+    ];
+  }
+  if (q) {
+    where.details = { contains: q as string };
+  }
+  if (from || to) {
+    where.createdAt = {};
+    if (from) where.createdAt.gte = new Date(from as string);
+    if (to) where.createdAt.lte = new Date(to as string);
+  }
+
+  const [logs, total] = await Promise.all([
+    prisma.auditLog.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      skip: (Number(page) - 1) * Number(limit),
+      take: Number(limit)
+    }),
+    prisma.auditLog.count({ where })
+  ]);
+
+  res.json({
+    data: logs,
+    pagination: {
+      total,
+      page: Number(page),
+      limit: Number(limit),
+      totalPages: Math.ceil(total / Number(limit))
+    }
+  });
+}));
+
+// ===================== DOCUMENT UPLOAD (Attorney) =====================
+// Upload single document
 app.post('/api/documents/upload', uploadSingle, asyncHandler(async (req: any, res: any) => {
   try {
     if (!req.file) {
+      console.error('[UPLOAD] No file received. Headers:', req.headers);
       return res.status(400).json({ message: 'No file uploaded. Please select a file.' });
     }
 
     const { matterId, description, tags } = req.body;
-    const token = req.headers.authorization?.replace('Bearer ', '');
 
-    if (!token) {
-      return res.status(401).json({ message: 'Unauthorized - please login again' });
-    }
+    // Check if user is authenticated (token check is done by verifyToken global middleware or manual check)
+    // Here we check if req.user is populated OR if we need to verify manually
+    let userId = req.user?.id;
+    let userRole = req.user?.role;
 
-    let decoded: any;
-    try {
-      decoded = jwt.verify(token, JWT_SECRET) as any;
-    } catch (jwtError) {
-      return res.status(401).json({ message: 'Session expired - please login again' });
+    if (!userId) {
+      // Fallback manual check if global middleware didn't populate it (unlikely but safe)
+      const token = req.headers.authorization?.replace('Bearer ', '');
+      if (!token) return res.status(401).json({ message: 'Unauthorized - Login required' });
+
+      try {
+        const decoded: any = jwt.verify(token, JWT_SECRET);
+        userId = decoded.sub;
+        userRole = decoded.role;
+      } catch (err) {
+        return res.status(401).json({ message: 'Unauthorized - Invalid token' });
+      }
     }
 
     const originalName = req.file.originalname || 'document';
@@ -3224,15 +2821,18 @@ app.post('/api/documents/upload', uploadSingle, asyncHandler(async (req: any, re
     });
     const nextVersion = (latest?.version || 0) + 1;
 
+    // Fix path separators for Windows
+    const relativePath = `/uploads/${req.file.filename}`;
+
     const document = await prisma.document.create({
       data: {
         name: originalName,
         fileName: req.file.filename,
-        filePath: `/uploads/${req.file.filename}`,
+        filePath: relativePath,
         fileSize: req.file.size,
         mimeType: req.file.mimetype,
         matterId: matterId || null,
-        uploadedBy: decoded.sub,
+        uploadedBy: userId,
         description: description || null,
         groupKey,
         version: nextVersion,
@@ -3240,53 +2840,42 @@ app.post('/api/documents/upload', uploadSingle, asyncHandler(async (req: any, re
       },
     });
 
-    // Get user info for audit log
-    const user = await prisma.user.findUnique({ where: { id: decoded.sub } });
-
     // Log document upload
-    await createAuditLog({
-      userId: decoded.sub,
-      userEmail: decoded.email || user?.email || undefined,
-      action: 'UPLOAD',
-      entityType: 'DOCUMENT',
-      entityId: document.id,
-      newValues: {
-        name: document.name,
-        fileName: document.fileName,
-        fileSize: document.fileSize,
-        mimeType: document.mimeType,
-        matterId: document.matterId,
-      },
-      details: `User uploaded document: ${document.name} (${(document.fileSize / 1024).toFixed(2)} KB)`,
-      ipAddress: req.ip || req.socket.remoteAddress || undefined,
-      userAgent: req.get('user-agent') || undefined,
-    });
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+
+    try {
+      await createAuditLog({
+        userId: userId,
+        userEmail: user?.email,
+        action: 'UPLOAD',
+        entityType: 'DOCUMENT',
+        entityId: document.id,
+        newValues: {
+          name: document.name,
+          fileName: document.fileName,
+          fileSize: document.fileSize,
+          mimeType: document.mimeType,
+          matterId: document.matterId,
+        },
+        details: `User uploaded document: ${document.name} (${(document.fileSize / 1024).toFixed(2)} KB)`,
+        ipAddress: req.ip || req.socket.remoteAddress || undefined,
+        userAgent: req.get('user-agent') || undefined,
+      });
+    } catch (auditErr) {
+      console.error('Audit log error on upload:', auditErr);
+      // Don't fail the upload just because audit log failed
+    }
 
     res.status(201).json(document);
   } catch (error: any) {
-    console.error('Document upload error:', error);
-
-    // Check for specific error types
-    if (error.code === 'ENOENT' || error.code === 'EACCES') {
-      return res.status(500).json({
-        message: 'File storage temporarily unavailable. Please try again later.',
-        error: 'Storage access error'
-      });
-    }
-
-    if (error.name === 'PrismaClientKnownRequestError') {
-      return res.status(500).json({
-        message: 'Database error while saving document. Please try again.',
-        error: error.message
-      });
-    }
-
+    console.error('[UPLOAD ERROR] Full error:', error);
     res.status(500).json({
-      message: 'Failed to upload document. Please try again.',
-      error: error.message || 'Unknown error'
+      message: 'Dosya yüklenirken sunucu hatası oluştu',
+      error: error.message
     });
   }
 }));
+
 
 // Get documents
 app.get('/api/documents', asyncHandler(async (req: any, res: any) => {
